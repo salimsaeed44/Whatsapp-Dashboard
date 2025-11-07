@@ -27,6 +27,10 @@ app.get('/health', (req, res) => {
   });
 });
 
+// WhatsApp Webhook endpoint (must be before body parsing for webhook verification)
+// Note: Webhook routes are defined in /api/whatsapp/webhook, but we keep this for direct access
+const whatsappService = require('./services/whatsapp/whatsapp.service');
+
 // API Routes
 const apiRoutes = require('./routes');
 app.use('/api', apiRoutes);
