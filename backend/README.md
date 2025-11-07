@@ -18,7 +18,9 @@ Backend API for WhatsApp Business Cloud API Dashboard management platform.
 
 ```
 backend/
-├── controllers/     # Business logic
+├── config/         # Configuration files (JWT, etc.)
+├── controllers/    # Business logic
+├── middleware/     # Authentication & Authorization middleware
 ├── models/         # Database models
 ├── routes/         # API routes
 ├── migrations/     # Database migrations
@@ -57,23 +59,30 @@ See `.env.example` for the complete list of required variables.
 
 ## API Endpoints
 
-### Authentication
+### Authentication (Public)
 - `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - Login user
-- `POST /api/auth/logout` - Logout user
-- `POST /api/auth/refresh-token` - Refresh token
+- `POST /api/auth/login` - Login user and get JWT tokens
+- `POST /api/auth/refresh-token` - Refresh access token
 
-### Users
-- `GET /api/users` - Get all users
-- `GET /api/users/:id` - Get user by ID
-- `PUT /api/users/:id` - Update user
-- `DELETE /api/users/:id` - Delete user
+### Authentication (Protected)
+- `POST /api/auth/logout` - Logout user (requires authentication)
+- `GET /api/auth/me` - Get current user profile (requires authentication)
+- `POST /api/auth/verify-token` - Verify if token is valid (optional authentication)
 
-### Messages
-- `GET /api/messages` - Get all messages
+### Users (Protected - Authentication Required)
+- `GET /api/users` - Get all users (Admin only)
+- `GET /api/users/:id` - Get user by ID (User can view own, Admin can view any)
+- `PUT /api/users/:id` - Update user (User can update own, Admin can update any)
+- `DELETE /api/users/:id` - Delete user (Admin only)
+- `GET /api/users/:id/profile` - Get user profile (User can view own, Admin can view any)
+
+### Messages (Protected - Authentication Required)
+- `GET /api/messages` - Get all messages (with pagination and filters)
 - `GET /api/messages/:id` - Get message by ID
-- `POST /api/messages` - Send message
+- `POST /api/messages` - Send new message
 - `PUT /api/messages/:id` - Update message status
+- `DELETE /api/messages/:id` - Delete message
+- `GET /api/messages/conversation/:phoneNumber` - Get conversation by phone number
 
 ### WhatsApp
 - `GET /api/whatsapp/webhook` - Webhook verification
@@ -87,6 +96,27 @@ See `.env.example` for the complete list of required variables.
 psql -U postgres -d whatsapp_db -f migrations/001_create_users_table.sql
 psql -U postgres -d whatsapp_db -f migrations/002_create_messages_table.sql
 ```
+
+## Authentication & Authorization
+
+### JWT Authentication
+- Access tokens and refresh tokens are used for authentication
+- Tokens are passed in `Authorization` header: `Bearer <token>`
+- Access tokens expire (default: 24h), refresh tokens expire (default: 7d)
+
+### Middleware
+- `authenticate` - Verifies JWT token and attaches user to request
+- `optionalAuthenticate` - Optional authentication (works with or without token)
+- `authorize(roles)` - Checks if user has required role(s)
+- `isAdmin` - Checks if user is admin
+- `isAdminOrUser` - Allows admin and regular users
+- `isOwnerOrAdmin` - Checks if user owns resource or is admin
+
+### Role-Based Access Control (RBAC)
+- **admin**: Full access to all resources
+- **user**: Access to own resources only
+
+See `middleware/README.md` for more details.
 
 ## حالة المشروع / Project Status
 

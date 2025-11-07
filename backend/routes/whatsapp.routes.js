@@ -7,8 +7,8 @@ const express = require('express');
 const router = express.Router();
 
 // TODO: Import WhatsApp controller and middleware
-// const whatsappController = require('../controllers/whatsapp.controller');
-// const { verifyWebhook } = require('../middleware/whatsapp.middleware');
+const whatsappController = require('../controllers/whatsapp.controller');
+const { authenticate, optionalAuthenticate } = require('../middleware');
 
 // Webhook verification (GET request from Meta)
 router.get('/webhook', (req, res) => {

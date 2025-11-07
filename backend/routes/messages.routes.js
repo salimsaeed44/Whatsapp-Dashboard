@@ -7,39 +7,53 @@ const express = require('express');
 const router = express.Router();
 
 // TODO: Import messages controller and middleware
-// const messagesController = require('../controllers/messages.controller');
-// const { authenticate } = require('../middleware/auth.middleware');
+const messagesController = require('../controllers/messages.controller');
+const { authenticate } = require('../middleware');
 
-// Placeholder routes
-router.get('/', (req, res) => {
-  // TODO: Get all messages (with pagination and filters)
-  res.status(501).json({ message: 'Get all messages endpoint - Not implemented yet' });
-});
+// All routes require authentication
+router.use(authenticate);
 
-router.get('/:id', (req, res) => {
-  // TODO: Get message by ID
-  res.status(501).json({ message: 'Get message by ID endpoint - Not implemented yet' });
-});
+/**
+ * GET /api/messages
+ * Get all messages (with pagination and filters)
+ * Requires: Authentication
+ */
+router.get('/', messagesController.getAllMessages);
 
-router.post('/', (req, res) => {
-  // TODO: Send new message
-  res.status(501).json({ message: 'Send message endpoint - Not implemented yet' });
-});
+/**
+ * GET /api/messages/:id
+ * Get message by ID
+ * Requires: Authentication
+ */
+router.get('/:id', messagesController.getMessageById);
 
-router.put('/:id', (req, res) => {
-  // TODO: Update message status
-  res.status(501).json({ message: 'Update message endpoint - Not implemented yet' });
-});
+/**
+ * POST /api/messages
+ * Send new message
+ * Requires: Authentication
+ */
+router.post('/', messagesController.sendMessage);
 
-router.delete('/:id', (req, res) => {
-  // TODO: Delete message
-  res.status(501).json({ message: 'Delete message endpoint - Not implemented yet' });
-});
+/**
+ * PUT /api/messages/:id
+ * Update message status
+ * Requires: Authentication
+ */
+router.put('/:id', messagesController.updateMessageStatus);
 
-router.get('/conversation/:phoneNumber', (req, res) => {
-  // TODO: Get conversation by phone number
-  res.status(501).json({ message: 'Get conversation endpoint - Not implemented yet' });
-});
+/**
+ * DELETE /api/messages/:id
+ * Delete message
+ * Requires: Authentication
+ */
+router.delete('/:id', messagesController.deleteMessage);
+
+/**
+ * GET /api/messages/conversation/:phoneNumber
+ * Get conversation by phone number
+ * Requires: Authentication
+ */
+router.get('/conversation/:phoneNumber', messagesController.getConversation);
 
 module.exports = router;
 
