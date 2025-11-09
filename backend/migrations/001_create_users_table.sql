@@ -37,17 +37,11 @@ $$ language 'plpgsql';
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Insert default admin user (password should be changed after first login)
--- Password hash for 'admin123' (change this in production)
-INSERT INTO users (email, username, password, role, full_name, is_active)
-VALUES (
-    'admin@whatsapp-dashboard.com',
-    'admin',
-    '$2b$10$YourHashedPasswordHere', -- TODO: Replace with actual hashed password
-    'admin',
-    'System Administrator',
-    true
-) ON CONFLICT (email) DO NOTHING;
+-- Note: Admin user should be created using the script: npm run create-admin
+-- Or manually via API: POST /api/auth/register
+-- 
+-- To create admin user, run: npm run create-admin
+-- Default credentials: admin@whatsapp-dashboard.com / admin123456
 
 
 
