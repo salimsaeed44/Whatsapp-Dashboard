@@ -21,6 +21,14 @@ router.use(authenticate);
 router.get('/', messagesController.getAllMessages);
 
 /**
+ * GET /api/messages/conversation/:phoneNumber
+ * Get conversation by phone number
+ * Requires: Authentication
+ * Note: This route must be before /:id to avoid route conflicts
+ */
+router.get('/conversation/:phoneNumber', messagesController.getConversation);
+
+/**
  * GET /api/messages/:id
  * Get message by ID
  * Requires: Authentication
@@ -35,11 +43,11 @@ router.get('/:id', messagesController.getMessageById);
 router.post('/', messagesController.sendMessage);
 
 /**
- * PUT /api/messages/:id
+ * PATCH /api/messages/:id/status
  * Update message status
  * Requires: Authentication
  */
-router.put('/:id', messagesController.updateMessageStatus);
+router.patch('/:id/status', messagesController.updateMessageStatus);
 
 /**
  * DELETE /api/messages/:id
@@ -47,13 +55,6 @@ router.put('/:id', messagesController.updateMessageStatus);
  * Requires: Authentication
  */
 router.delete('/:id', messagesController.deleteMessage);
-
-/**
- * GET /api/messages/conversation/:phoneNumber
- * Get conversation by phone number
- * Requires: Authentication
- */
-router.get('/conversation/:phoneNumber', messagesController.getConversation);
 
 module.exports = router;
 

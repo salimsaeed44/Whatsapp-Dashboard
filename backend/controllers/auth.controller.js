@@ -3,10 +3,8 @@
  * Handles authentication business logic
  */
 
-// TODO: Import required modules
-// const User = require('../models/user.model');
-// const { generateAccessToken, generateRefreshToken, verifyToken } = require('../config/jwt.config');
-// const bcrypt = require('bcrypt');
+const User = require('../models/user.model');
+const { generateAccessToken, generateRefreshToken, verifyToken } = require('../config/jwt.config');
 
 /**
  * Register a new user
@@ -26,55 +24,98 @@
  */
 const register = async (req, res) => {
   try {
-    // TODO: Implement user registration
-    // 1. Validate input data (email, password, etc.)
-    // 2. Check if user with email already exists
-    // 3. Hash password using bcrypt
-    // 4. Create user in database using User model
-    // 5. Generate JWT access token and refresh token
-    // 6. Return user data (without password) and tokens
-    //    Response format: { user: {...}, accessToken: '...', refreshToken: '...' }
-    
-    const { email, password, username, full_name } = req.body;
+    const { email, password, username, full_name, phone_number, role = 'user' } = req.body;
 
-    // TODO: Add validation
-    // if (!email || !password) {
-    //   return res.status(400).json({ error: 'Email and password are required' });
-    // }
+    // Validate required fields
+    if (!email || !password) {
+      return res.status(400).json({ 
+        error: 'Validation error',
+        message: 'Email and password are required' 
+      });
+    }
 
-    // TODO: Check if user exists
-    // const existingUser = await User.findUserByEmail(email);
-    // if (existingUser) {
-    //   return res.status(400).json({ error: 'User with this email already exists' });
-    // }
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ 
+        error: 'Validation error',
+        message: 'Invalid email format' 
+      });
+    }
 
-    // TODO: Hash password
-    // const hashedPassword = await bcrypt.hash(password, 10);
+    // Validate password length
+    if (password.length < 8) {
+      return res.status(400).json({ 
+        error: 'Validation error',
+        message: 'Password must be at least 8 characters long' 
+      });
+    }
 
-    // TODO: Create user
-    // const user = await User.createUser({
-    //   email,
-    //   password: hashedPassword,
-    //   username,
-    //   full_name,
-    //   role: 'user'
-    // });
+    // Check if user with email already exists
+    const existingUser = await User.findUserByEmail(email);
+    if (existingUser) {
+      return res.status(400).json({ 
+        error: 'User already exists',
+        message: 'User with this email already exists' 
+      });
+    }
 
-    // TODO: Generate tokens
-    // const accessToken = generateAccessToken({
-    //   id: user.id,
-    //   email: user.email,
-    //   role: user.role
-    // });
-    // const refreshToken = generateRefreshToken({ id: user.id });
+    // Check if username is provided and already exists
+    if (username) {
+      const existingUsername = await User.findUserByUsername(username);
+      if (existingUsername) {
+        return res.status(400).json({ 
+          error: 'User already exists',
+          message: 'User with this username already exists' 
+        });
+      }
+    }
 
-    // Placeholder response
-    res.status(501).json({
-      message: 'Register function - Not implemented yet',
-      data: { email, username, full_name }
+    // Create user (password will be hashed in the model)
+    const user = await User.createUser({
+      email,
+      password,
+      username,
+      full_name,
+      phone_number,
+      role
+    });
+
+    // Generate tokens
+    const accessToken = generateAccessToken({
+      id: user.id,
+      email: user.email,
+      role: user.role
+    });
+    const refreshToken = generateRefreshToken({ id: user.id });
+
+    // Return user data (without password) and tokens
+    res.status(201).json({
+      message: 'User registered successfully',
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        role: user.role,
+        full_name: user.full_name,
+        phone_number: user.phone_number,
+        is_active: user.is_active,
+        created_at: user.created_at
+      },
+      accessToken,
+      refreshToken
     });
   } catch (error) {
     console.error('Registration error:', error);
+    
+    // Handle specific errors
+    if (error.message === 'Email already exists' || error.message === 'Username already exists') {
+      return res.status(400).json({
+        error: 'User already exists',
+        message: error.message
+      });
+    }
+
     res.status(500).json({
       error: 'Registration failed',
       message: error.message
@@ -98,57 +139,72 @@ const register = async (req, res) => {
  */
 const login = async (req, res) => {
   try {
-    // TODO: Implement user login
-    // 1. Validate input data (email/username and password)
-    // 2. Find user by email or username using User model
-    // 3. Check if user exists and is active
-    // 4. Verify password using bcrypt.compare()
-    // 5. Update last_login timestamp
-    // 6. Generate JWT access token and refresh token
-    // 7. Return user data (without password) and tokens
-    //    Response format: { user: {...}, accessToken: '...', refreshToken: '...' }
-    
     const { email, username, password } = req.body;
 
-    // TODO: Add validation
-    // if ((!email && !username) || !password) {
-    //   return res.status(400).json({ error: 'Email/username and password are required' });
-    // }
+    // Validate input
+    if ((!email && !username) || !password) {
+      return res.status(400).json({ 
+        error: 'Validation error',
+        message: 'Email/username and password are required' 
+      });
+    }
 
-    // TODO: Find user
-    // const user = email 
-    //   ? await User.findUserByEmail(email)
-    //   : await User.findUserByUsername(username);
+    // Find user by email or username
+    const user = email 
+      ? await User.findUserByEmail(email, true) // Include password for verification
+      : await User.findUserByUsername(username, true);
     
-    // if (!user) {
-    //   return res.status(401).json({ error: 'Invalid credentials' });
-    // }
+    if (!user) {
+      return res.status(401).json({ 
+        error: 'Authentication failed',
+        message: 'Invalid credentials' 
+      });
+    }
 
-    // if (!user.is_active) {
-    //   return res.status(401).json({ error: 'Account is deactivated' });
-    // }
+    // Check if user is active
+    if (!user.is_active) {
+      return res.status(401).json({ 
+        error: 'Account deactivated',
+        message: 'Your account has been deactivated. Please contact an administrator.' 
+      });
+    }
 
-    // TODO: Verify password
-    // const isPasswordValid = await bcrypt.compare(password, user.password);
-    // if (!isPasswordValid) {
-    //   return res.status(401).json({ error: 'Invalid credentials' });
-    // }
+    // Verify password
+    const isPasswordValid = await User.verifyPassword(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ 
+        error: 'Authentication failed',
+        message: 'Invalid credentials' 
+      });
+    }
 
-    // TODO: Update last_login
-    // await User.updateUser(user.id, { last_login: new Date() });
+    // Update last_login
+    await User.updateLastLogin(user.id);
 
-    // TODO: Generate tokens
-    // const accessToken = generateAccessToken({
-    //   id: user.id,
-    //   email: user.email,
-    //   role: user.role
-    // });
-    // const refreshToken = generateRefreshToken({ id: user.id });
+    // Generate tokens
+    const accessToken = generateAccessToken({
+      id: user.id,
+      email: user.email,
+      role: user.role
+    });
+    const refreshToken = generateRefreshToken({ id: user.id });
 
-    // Placeholder response
-    res.status(501).json({
-      message: 'Login function - Not implemented yet',
-      data: { email, username }
+    // Return user data (without password) and tokens
+    res.status(200).json({
+      message: 'Login successful',
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        role: user.role,
+        full_name: user.full_name,
+        phone_number: user.phone_number,
+        is_active: user.is_active,
+        last_login: user.last_login,
+        created_at: user.created_at
+      },
+      accessToken,
+      refreshToken
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -173,33 +229,13 @@ const login = async (req, res) => {
  */
 const logout = async (req, res) => {
   try {
-    // TODO: Implement user logout
-    // Option 1: Token blacklist (store invalidated tokens in database/cache)
-    // 1. Extract token from request
-    // 2. Add token to blacklist (Redis, database, or in-memory store)
-    // 3. Set expiration for blacklisted token (same as token expiration)
-    
-    // Option 2: Refresh token revocation
-    // 1. If refresh token is provided, revoke it
-    // 2. Store revoked refresh tokens in database
-    
-    // Option 3: Session invalidation (if using sessions)
-    // 1. Destroy session
-    
     // For now, client should delete tokens from storage
     // Server-side logout can be implemented when token blacklist is needed
+    // In the future, we can implement token blacklisting using Redis or database
 
-    // TODO: Extract token from request
-    // const token = req.headers.authorization?.substring(7);
-    // if (token) {
-    //   // Add to blacklist
-    //   await TokenBlacklist.add(token);
-    // }
-
-    // Placeholder response
     res.status(200).json({
       message: 'Logout successful',
-      note: 'Client should delete tokens from storage'
+      note: 'Client should delete tokens from storage. Server-side token revocation will be implemented in the future.'
     });
   } catch (error) {
     console.error('Logout error:', error);
@@ -225,61 +261,53 @@ const logout = async (req, res) => {
  */
 const refreshToken = async (req, res) => {
   try {
-    // TODO: Implement token refresh
-    // 1. Get refresh token from request body
-    // 2. Verify refresh token using JWT_REFRESH_SECRET
-    // 3. Check if refresh token is revoked (if using revocation)
-    // 4. Get user data from token or database
-    // 5. Generate new access token
-    // 6. Optionally: Generate new refresh token (rotation)
-    // 7. Return new tokens
-    
     const { refreshToken } = req.body;
 
-    // TODO: Add validation
-    // if (!refreshToken) {
-    //   return res.status(400).json({ error: 'Refresh token is required' });
-    // }
+    // Validate input
+    if (!refreshToken) {
+      return res.status(400).json({ 
+        error: 'Validation error',
+        message: 'Refresh token is required' 
+      });
+    }
 
-    // TODO: Verify refresh token
-    // const decoded = verifyToken(refreshToken, process.env.JWT_REFRESH_SECRET);
+    // Verify refresh token
+    const refreshSecret = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
+    const decoded = verifyToken(refreshToken, refreshSecret);
     
-    // TODO: Check if token is revoked
-    // const isRevoked = await TokenRevocation.isRevoked(refreshToken);
-    // if (isRevoked) {
-    //   return res.status(401).json({ error: 'Refresh token has been revoked' });
-    // }
+    // Get user from database
+    const user = await User.findUserById(decoded.id);
+    if (!user || !user.is_active) {
+      return res.status(401).json({ 
+        error: 'Authentication failed',
+        message: 'User not found or inactive' 
+      });
+    }
 
-    // TODO: Get user from database
-    // const user = await User.findUserById(decoded.id);
-    // if (!user || !user.is_active) {
-    //   return res.status(401).json({ error: 'User not found or inactive' });
-    // }
+    // Generate new access token
+    const accessToken = generateAccessToken({
+      id: user.id,
+      email: user.email,
+      role: user.role
+    });
 
-    // TODO: Generate new access token
-    // const accessToken = generateAccessToken({
-    //   id: user.id,
-    //   email: user.email,
-    //   role: user.role
-    // });
+    // Optionally generate new refresh token (token rotation)
+    // For now, we'll reuse the same refresh token
+    // In the future, we can implement token rotation for better security
 
-    // TODO: Optionally rotate refresh token (generate new one and revoke old)
-    // const newRefreshToken = generateRefreshToken({ id: user.id });
-    // await TokenRevocation.revoke(refreshToken);
-
-    // Placeholder response
-    res.status(501).json({
-      message: 'Refresh token function - Not implemented yet',
-      data: { refreshToken }
+    res.status(200).json({
+      message: 'Token refreshed successfully',
+      accessToken,
+      refreshToken // Return same refresh token for now
     });
   } catch (error) {
     console.error('Refresh token error:', error);
     
     // Handle JWT errors
-    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError' || error.message === 'Token has expired' || error.message === 'Invalid token') {
       return res.status(401).json({
-        error: 'Invalid or expired refresh token',
-        message: error.message
+        error: 'Authentication failed',
+        message: 'Invalid or expired refresh token'
       });
     }
 
@@ -290,10 +318,118 @@ const refreshToken = async (req, res) => {
   }
 };
 
+/**
+ * Get current user profile
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * 
+ * Requires authentication (req.user is available from authenticate middleware)
+ * 
+ * Response:
+ * - 200: User profile
+ * - 401: Not authenticated
+ * - 500: Server error
+ */
+const getMe = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        error: 'Authentication required',
+        message: 'User not authenticated'
+      });
+    }
+
+    const user = await User.findUserById(userId);
+    if (!user) {
+      return res.status(404).json({
+        error: 'User not found',
+        message: 'User does not exist'
+      });
+    }
+
+    res.status(200).json({
+      message: 'User profile retrieved successfully',
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        role: user.role,
+        full_name: user.full_name,
+        phone_number: user.phone_number,
+        is_active: user.is_active,
+        last_login: user.last_login,
+        created_at: user.created_at,
+        updated_at: user.updated_at
+      }
+    });
+  } catch (error) {
+    console.error('Get me error:', error);
+    res.status(500).json({
+      error: 'Failed to retrieve user profile',
+      message: error.message
+    });
+  }
+};
+
+/**
+ * Verify token validity
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * 
+ * Request body:
+ * - token: string (required)
+ * 
+ * Response:
+ * - 200: Token is valid
+ * - 401: Token is invalid or expired
+ * - 500: Server error
+ */
+const verifyTokenEndpoint = async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({
+        error: 'Validation error',
+        message: 'Token is required'
+      });
+    }
+
+    const decoded = verifyToken(token);
+    const user = await User.findUserById(decoded.id);
+
+    if (!user || !user.is_active) {
+      return res.status(401).json({
+        error: 'Authentication failed',
+        message: 'User not found or inactive'
+      });
+    }
+
+    res.status(200).json({
+      message: 'Token is valid',
+      valid: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    res.status(401).json({
+      error: 'Token verification failed',
+      message: error.message,
+      valid: false
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
   logout,
-  refreshToken
+  refreshToken,
+  getMe,
+  verifyTokenEndpoint
 };
-

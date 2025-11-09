@@ -15,12 +15,6 @@ const jwt = require('jsonwebtoken');
  * @returns {string} JWT token
  */
 const generateAccessToken = (payload) => {
-  // TODO: Implement JWT access token generation
-  // 1. Define token payload (id, email, role)
-  // 2. Set expiration time from environment variable (JWT_EXPIRES_IN)
-  // 3. Sign token with JWT_SECRET
-  // 4. Return token
-
   const secret = process.env.JWT_SECRET;
   const expiresIn = process.env.JWT_EXPIRES_IN || '24h';
 
@@ -28,27 +22,24 @@ const generateAccessToken = (payload) => {
     throw new Error('JWT_SECRET is not defined in environment variables');
   }
 
-  // TODO: Generate actual token
-  // const token = jwt.sign(payload, secret, { expiresIn });
-  // return token;
+  const tokenPayload = {
+    id: payload.id,
+    email: payload.email,
+    role: payload.role
+  };
 
-  // Placeholder
-  return 'placeholder-jwt-token';
+  const token = jwt.sign(tokenPayload, secret, { expiresIn });
+  return token;
 };
 
 /**
  * Generate JWT refresh token
  * 
  * @param {Object} payload - User data to encode in token
+ * @param {string} payload.id - User ID
  * @returns {string} JWT refresh token
  */
 const generateRefreshToken = (payload) => {
-  // TODO: Implement JWT refresh token generation
-  // 1. Define token payload (id only, or minimal data)
-  // 2. Set longer expiration time (e.g., 7d, 30d)
-  // 3. Sign token with JWT_REFRESH_SECRET (different from access token secret)
-  // 4. Return refresh token
-
   const refreshSecret = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
   const expiresIn = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
 
@@ -56,12 +47,12 @@ const generateRefreshToken = (payload) => {
     throw new Error('JWT_REFRESH_SECRET is not defined in environment variables');
   }
 
-  // TODO: Generate actual refresh token
-  // const token = jwt.sign({ id: payload.id }, refreshSecret, { expiresIn });
-  // return token;
+  const tokenPayload = {
+    id: payload.id
+  };
 
-  // Placeholder
-  return 'placeholder-refresh-token';
+  const token = jwt.sign(tokenPayload, refreshSecret, { expiresIn });
+  return token;
 };
 
 /**
@@ -72,28 +63,24 @@ const generateRefreshToken = (payload) => {
  * @returns {Object} Decoded token payload
  */
 const verifyToken = (token, secret = null) => {
-  // TODO: Implement JWT token verification
-  // 1. Use provided secret or default to JWT_SECRET
-  // 2. Verify token using jwt.verify()
-  // 3. Return decoded payload
-  // 4. Throw error if token is invalid or expired
-
   const verifySecret = secret || process.env.JWT_SECRET;
 
   if (!verifySecret) {
     throw new Error('JWT_SECRET is not defined in environment variables');
   }
 
-  // TODO: Verify actual token
-  // const decoded = jwt.verify(token, verifySecret);
-  // return decoded;
-
-  // Placeholder
-  return {
-    id: 'placeholder-user-id',
-    email: 'placeholder@example.com',
-    role: 'user'
-  };
+  try {
+    const decoded = jwt.verify(token, verifySecret);
+    return decoded;
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      throw new Error('Token has expired');
+    } else if (error.name === 'JsonWebTokenError') {
+      throw new Error('Invalid token');
+    } else {
+      throw error;
+    }
+  }
 };
 
 /**
@@ -104,15 +91,11 @@ const verifyToken = (token, secret = null) => {
  * @returns {Object} Decoded token payload (not verified)
  */
 const decodeToken = (token) => {
-  // TODO: Implement token decoding
-  // return jwt.decode(token);
-
-  // Placeholder
-  return {
-    id: 'placeholder-user-id',
-    email: 'placeholder@example.com',
-    role: 'user'
-  };
+  try {
+    return jwt.decode(token);
+  } catch (error) {
+    throw new Error('Failed to decode token');
+  }
 };
 
 module.exports = {
@@ -121,4 +104,3 @@ module.exports = {
   verifyToken,
   decodeToken
 };
-

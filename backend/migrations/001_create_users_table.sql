@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(255) UNIQUE NOT NULL,
     username VARCHAR(100) UNIQUE,
     password VARCHAR(255) NOT NULL,
-    role VARCHAR(20) DEFAULT 'user' CHECK (role IN ('admin', 'user')),
+    role VARCHAR(20) DEFAULT 'user' CHECK (role IN ('admin', 'user', 'supervisor', 'employee')),
     full_name VARCHAR(255),
     phone_number VARCHAR(20),
     is_active BOOLEAN DEFAULT true,
@@ -48,4 +48,8 @@ VALUES (
     'System Administrator',
     true
 ) ON CONFLICT (email) DO NOTHING;
+
+
+
+
 

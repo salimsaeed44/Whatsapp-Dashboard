@@ -3,9 +3,10 @@
  * Handles incoming webhook events from Meta WhatsApp Business API
  */
 
-// TODO: Import required modules
-// const Message = require('../../models/message.model');
-// const whatsappService = require('./whatsapp.service');
+const Message = require('../../models/message.model');
+const Conversation = require('../../models/conversation.model');
+const distributionService = require('../distribution.service');
+const notificationService = require('../notification.service');
 
 /**
  * Verify webhook from Meta
@@ -132,66 +133,150 @@ const handleIncomingMessage = async (message, value) => {
       timestamp: message.timestamp
     });
 
+    // Check if message already exists
+    const existingMessage = await Message.findMessageByWhatsAppId(message.id);
+    if (existingMessage) {
+      console.log('⚠️ Message already exists in database:', message.id);
+      return;
+    }
+
     // Extract message data
-    const messageData = {
-      whatsapp_message_id: message.id,
-      phone_number: message.from,
-      message_type: message.type || 'text',
-      direction: 'incoming',
-      status: 'received',
-      timestamp: new Date(parseInt(message.timestamp) * 1000),
-      metadata: {
-        message_id: message.id,
-        conversation_id: message.context?.id,
-        referred_product_id: message.context?.referred_product?.product_retailer_id
-      }
+    const whatsappTimestamp = message.timestamp ? new Date(parseInt(message.timestamp) * 1000) : null;
+    
+    let content = '';
+    const metadata = {
+      message_id: message.id,
+      conversation_id: message.context?.id,
+      referred_product_id: message.context?.referred_product?.product_retailer_id,
+      raw_message: message
     };
 
     // Extract content based on message type
     switch (message.type) {
       case 'text':
-        messageData.content = message.text?.body || '';
+        content = message.text?.body || '';
         break;
       case 'image':
-        messageData.content = message.image?.caption || '';
-        messageData.metadata.image_id = message.image?.id;
-        messageData.metadata.mime_type = message.image?.mime_type;
+        content = message.image?.caption || '[Image]';
+        metadata.image_id = message.image?.id;
+        metadata.mime_type = message.image?.mime_type;
+        metadata.image_url = message.image?.link;
         break;
       case 'video':
-        messageData.content = message.video?.caption || '';
-        messageData.metadata.video_id = message.video?.id;
+        content = message.video?.caption || '[Video]';
+        metadata.video_id = message.video?.id;
+        metadata.mime_type = message.video?.mime_type;
         break;
       case 'audio':
-        messageData.content = '[Audio Message]';
-        messageData.metadata.audio_id = message.audio?.id;
+        content = '[Audio Message]';
+        metadata.audio_id = message.audio?.id;
+        metadata.mime_type = message.audio?.mime_type;
         break;
       case 'document':
-        messageData.content = message.document?.caption || message.document?.filename || '';
-        messageData.metadata.document_id = message.document?.id;
-        messageData.metadata.filename = message.document?.filename;
+        content = message.document?.caption || message.document?.filename || '[Document]';
+        metadata.document_id = message.document?.id;
+        metadata.filename = message.document?.filename;
+        metadata.mime_type = message.document?.mime_type;
         break;
       case 'location':
-        messageData.content = `Lat: ${message.location?.latitude}, Long: ${message.location?.longitude}`;
-        messageData.metadata.latitude = message.location?.latitude;
-        messageData.metadata.longitude = message.location?.longitude;
+        content = `Lat: ${message.location?.latitude}, Long: ${message.location?.longitude}`;
+        metadata.latitude = message.location?.latitude;
+        metadata.longitude = message.location?.longitude;
+        metadata.name = message.location?.name;
+        metadata.address = message.location?.address;
         break;
       case 'contacts':
-        messageData.content = JSON.stringify(message.contacts);
+        content = JSON.stringify(message.contacts);
+        metadata.contacts = message.contacts;
+        break;
+      case 'sticker':
+        content = '[Sticker]';
+        metadata.sticker_id = message.sticker?.id;
+        metadata.mime_type = message.sticker?.mime_type;
         break;
       default:
-        messageData.content = JSON.stringify(message);
+        content = JSON.stringify(message);
     }
 
-    // TODO: Save message to database
-    // const savedMessage = await Message.createMessage(messageData);
-    // console.log('✅ Message saved to database:', savedMessage.id);
+    // Map message type
+    const messageTypeMap = {
+      'text': 'text',
+      'image': 'image',
+      'video': 'video',
+      'audio': 'audio',
+      'document': 'document',
+      'location': 'location',
+      'contacts': 'contact',
+      'sticker': 'sticker'
+    };
 
-    // TODO: Trigger bot response or notify users
-    // await triggerBotResponse(messageData);
+    const messageType = messageTypeMap[message.type] || 'text';
 
-    console.log('✅ Incoming message processed:', messageData.whatsapp_message_id);
+    // Get or create conversation for this phone number
+    const conversation = await Conversation.getOrCreateConversation(message.from);
+
+    // Update conversation's last message
+    await Conversation.updateConversation(conversation.id, {
+      last_message_at: whatsappTimestamp || new Date(),
+      status: conversation.status === 'closed' ? 'open' : conversation.status // Reopen if closed
+    });
+
+    // Increment unread count if conversation is assigned
+    if (conversation.assigned_to) {
+      await Conversation.incrementUnreadCount(conversation.id);
+    }
+
+    // Save message to database
+    const savedMessage = await Message.createMessage({
+      whatsapp_message_id: message.id,
+      phone_number: message.from,
+      message_type: messageType,
+      content: content,
+      direction: 'incoming',
+      status: 'delivered', // Incoming messages are considered delivered
+      source: 'meta',
+      conversation_id: conversation.id,
+      whatsapp_timestamp: whatsappTimestamp,
+      metadata: metadata,
+      raw_payload: value
+    });
+
+    // Update conversation's last_message_id
+    await Conversation.updateConversation(conversation.id, {
+      last_message_id: savedMessage.id
+    });
+
+    // Auto-assign conversation if not assigned
+    if (!conversation.assigned_to && conversation.status === 'open') {
+      try {
+        // Use round robin distribution by default
+        await distributionService.autoAssign(conversation.id, 'round_robin');
+        console.log('✅ Conversation auto-assigned:', conversation.id);
+      } catch (error) {
+        console.error('⚠️ Error auto-assigning conversation:', error);
+        // Don't fail message processing if auto-assignment fails
+      }
+    }
+
+    console.log('✅ Message saved to database:', savedMessage.id);
+    console.log('✅ Conversation updated:', conversation.id);
+
+    // Send notification for new message if conversation is assigned
+    if (conversation.assigned_to) {
+      try {
+        await notificationService.notifyNewMessage(conversation.id, savedMessage.id);
+      } catch (error) {
+        console.error('Error sending new message notification:', error);
+        // Don't fail message processing if notification fails
+      }
+    }
+
+    // TODO: Trigger bot response
+    // await triggerBotResponse(savedMessage);
+
   } catch (error) {
     console.error('❌ Error handling incoming message:', error);
+    // Don't throw error to prevent webhook from failing
   }
 };
 
@@ -218,16 +303,31 @@ const handleMessageStatus = async (status) => {
 
     const mappedStatus = statusMap[status.status] || status.status;
 
-    // TODO: Update message status in database
-    // await Message.updateMessageStatus(status.id, mappedStatus, {
-    //   timestamp: new Date(parseInt(status.timestamp) * 1000),
-    //   recipient_id: status.recipient_id,
-    //   error: status.errors ? JSON.stringify(status.errors) : null
-    // });
+    // Find message by WhatsApp message ID
+    const message = await Message.findMessageByWhatsAppId(status.id);
+    if (!message) {
+      console.log('⚠️ Message not found for status update:', status.id);
+      return;
+    }
+
+    // Update message status
+    const timestamp = status.timestamp ? new Date(parseInt(status.timestamp) * 1000) : null;
+    await Message.updateMessageStatus(message.id, mappedStatus, timestamp);
+
+    // Update metadata with status information
+    if (status.errors) {
+      await Message.updateMessageByWhatsAppId(status.id, {
+        metadata: {
+          ...message.metadata,
+          status_errors: status.errors
+        }
+      });
+    }
 
     console.log('✅ Message status updated:', status.id, '->', mappedStatus);
   } catch (error) {
     console.error('❌ Error handling message status:', error);
+    // Don't throw error to prevent webhook from failing
   }
 };
 
@@ -254,4 +354,3 @@ module.exports = {
   verifyWebhook,
   handleWebhook
 };
-

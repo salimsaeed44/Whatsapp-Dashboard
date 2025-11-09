@@ -81,7 +81,12 @@ const sendTextMessage = async (to, text, options = {}) => {
     };
   } catch (error) {
     console.error('❌ Error sending text message:', error.response?.data || error.message);
-    throw error;
+    return {
+      success: false,
+      error: error.response?.data?.error?.message || error.message,
+      details: error.response?.data?.error || error.response?.data,
+      code: error.response?.status || 500
+    };
   }
 };
 
@@ -138,7 +143,12 @@ const sendImageMessage = async (to, imageUrl, caption = '', options = {}) => {
     };
   } catch (error) {
     console.error('❌ Error sending image message:', error.response?.data || error.message);
-    throw error;
+    return {
+      success: false,
+      error: error.response?.data?.error?.message || error.message,
+      details: error.response?.data?.error || error.response?.data,
+      code: error.response?.status || 500
+    };
   }
 };
 
@@ -197,7 +207,12 @@ const sendDocumentMessage = async (to, documentUrl, filename, caption = '', opti
     };
   } catch (error) {
     console.error('❌ Error sending document message:', error.response?.data || error.message);
-    throw error;
+    return {
+      success: false,
+      error: error.response?.data?.error?.message || error.message,
+      details: error.response?.data?.error || error.response?.data,
+      code: error.response?.status || 500
+    };
   }
 };
 
@@ -250,7 +265,12 @@ const sendLocationMessage = async (to, latitude, longitude, name = '', address =
     };
   } catch (error) {
     console.error('❌ Error sending location message:', error.response?.data || error.message);
-    throw error;
+    return {
+      success: false,
+      error: error.response?.data?.error?.message || error.message,
+      details: error.response?.data?.error || error.response?.data,
+      code: error.response?.status || 500
+    };
   }
 };
 
@@ -288,7 +308,12 @@ const markAsRead = async (messageId) => {
     };
   } catch (error) {
     console.error('❌ Error marking message as read:', error.response?.data || error.message);
-    throw error;
+    return {
+      success: false,
+      error: error.response?.data?.error?.message || error.message,
+      details: error.response?.data?.error || error.response?.data,
+      code: error.response?.status || 500
+    };
   }
 };
 
@@ -299,4 +324,8 @@ module.exports = {
   sendLocationMessage,
   markAsRead
 };
+
+
+
+
 
