@@ -25,9 +25,19 @@ export const AuthProvider = ({ children }) => {
     try {
       const token = localStorage.getItem('accessToken');
       if (token) {
-        const response = await authService.getMe();
-        setUser(response.user);
-        setIsAuthenticated(true);
+        try {
+          const response = await authService.getMe();
+          setUser(response.user);
+          setIsAuthenticated(true);
+        } catch (error) {
+          // If token is invalid, clear it but don't show error
+          console.warn('Auth check failed:', error.message);
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          setIsAuthenticated(false);
+        }
+      } else {
+        setIsAuthenticated(false);
       }
     } catch (error) {
       console.error('Auth check error:', error);
@@ -53,9 +63,31 @@ export const AuthProvider = ({ children }) => {
       return { success: true, user };
     } catch (error) {
       console.error('Login error:', error);
+      
+      // Better error messages
+      let errorMessage = 'Login failed';
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      // Check if it's a network error
+      if (!error.response) {
+        if (error.message.includes('timeout')) {
+          errorMessage = 'Connection timeout. Please check your internet connection.';
+        } else if (error.message.includes('Cannot connect')) {
+          errorMessage = 'Cannot connect to server. Please check if the backend is running.';
+        } else {
+          errorMessage = `Network error: ${error.message}. Please check your connection.`;
+        }
+      }
+      
       return {
         success: false,
-        error: error.response?.data?.message || error.message,
+        error: errorMessage,
       };
     }
   };

@@ -18,12 +18,13 @@ const Login = () => {
     try {
       const result = await login(email, password);
       if (result.success) {
-        navigate('/dashboard');
+        navigate('/dashboard', { replace: true });
       } else {
-        setError(result.error || 'Login failed');
+        setError(result.error || 'فشل تسجيل الدخول');
       }
     } catch (err) {
-      setError('An error occurred during login');
+      console.error('Login form error:', err);
+      setError(err.message || 'حدث خطأ أثناء تسجيل الدخول');
     } finally {
       setLoading(false);
     }

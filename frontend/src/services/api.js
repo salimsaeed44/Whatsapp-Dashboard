@@ -8,12 +8,17 @@ const API_URL = import.meta.env.VITE_API_URL ||
     ? 'https://whatsapp-dashboard-encw.onrender.com/api' 
     : 'http://localhost:3000/api');
 
+console.log('🔗 API URL:', API_URL);
+console.log('🌍 Environment:', import.meta.env.MODE);
+console.log('📦 Production:', import.meta.env.PROD);
+
 // Create axios instance
 const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 30000, // 30 seconds timeout
 });
 
 // Request interceptor to add token
@@ -36,6 +41,23 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
+    // Network error (no response from server)
+    if (!error.response) {
+      console.error('🚫 Network Error:', error.message);
+      console.error('🔗 API URL:', API_URL);
+      
+      // Check if it's a timeout
+      if (error.code === 'ECONNABORTED') {
+        error.message = 'Request timeout. Please check your internet connection.';
+      } else if (error.code === 'ERR_NETWORK') {
+        error.message = `Cannot connect to server. Please check if the backend is running at ${API_URL}`;
+      } else {
+        error.message = `Network error: ${error.message}. Please check your connection and backend URL.`;
+      }
+      
+      return Promise.reject(error);
+    }
+
     // If token expired, try to refresh
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
@@ -57,9 +79,19 @@ api.interceptors.response.use(
         // Refresh failed, logout user
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
-        window.location.href = '/login';
+        // Only redirect if not already on login page
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
         return Promise.reject(refreshError);
       }
+    }
+
+    // Log other errors for debugging
+    if (error.response?.status >= 500) {
+      console.error('❌ Server Error:', error.response.status, error.response.data);
+    } else if (error.response?.status >= 400) {
+      console.error('⚠️ Client Error:', error.response.status, error.response.data);
     }
 
     return Promise.reject(error);

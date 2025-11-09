@@ -1,0 +1,4 @@
+# React Router redirects for Render
+# This file ensures all routes are handled by index.html
+/*    /index.html   200
+
