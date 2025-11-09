@@ -18,7 +18,9 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
-    minify: 'terser',
+    // Use esbuild (default, faster) instead of terser
+    // If you need terser, install it: npm install --save-dev terser
+    minify: 'esbuild', // or 'terser' if terser is installed
     rollupOptions: {
       output: {
         manualChunks: {
