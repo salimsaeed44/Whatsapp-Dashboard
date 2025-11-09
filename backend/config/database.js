@@ -7,17 +7,36 @@ require('dotenv').config();
 const { Pool } = require('pg');
 
 // Database configuration
-const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME || process.env.POSTGRES_DB || 'whatsapp_db',
-  user: process.env.DB_USER || process.env.POSTGRES_USER || 'postgres',
-  password: process.env.DB_PASSWORD || process.env.POSTGRES_PASSWORD || 'postgres',
-  // Connection pool settings
-  max: process.env.DB_POOL_MAX || 20, // Maximum number of clients in the pool
-  idleTimeoutMillis: process.env.DB_POOL_IDLE_TIMEOUT || 30000, // Close idle clients after 30 seconds
-  connectionTimeoutMillis: process.env.DB_POOL_CONNECTION_TIMEOUT || 2000, // Return an error after 2 seconds if connection could not be established
-};
+// Render provides DATABASE_URL automatically when you add a PostgreSQL database
+// Format: postgres://user:password@host:port/database
+let dbConfig;
+
+if (process.env.DATABASE_URL) {
+  // Use DATABASE_URL if provided (Render, Heroku, etc.)
+  dbConfig = {
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    // Connection pool settings
+    max: parseInt(process.env.DB_POOL_MAX || '20', 10),
+    idleTimeoutMillis: parseInt(process.env.DB_POOL_IDLE_TIMEOUT || '30000', 10),
+    connectionTimeoutMillis: parseInt(process.env.DB_POOL_CONNECTION_TIMEOUT || '2000', 10),
+  };
+  console.log('📊 Using DATABASE_URL for database connection');
+} else {
+  // Fallback to individual environment variables (local development)
+  dbConfig = {
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || '5432', 10),
+    database: process.env.DB_NAME || process.env.POSTGRES_DB || 'whatsapp_db',
+    user: process.env.DB_USER || process.env.POSTGRES_USER || 'postgres',
+    password: process.env.DB_PASSWORD || process.env.POSTGRES_PASSWORD || 'postgres',
+    // Connection pool settings
+    max: parseInt(process.env.DB_POOL_MAX || '20', 10),
+    idleTimeoutMillis: parseInt(process.env.DB_POOL_IDLE_TIMEOUT || '30000', 10),
+    connectionTimeoutMillis: parseInt(process.env.DB_POOL_CONNECTION_TIMEOUT || '2000', 10),
+  };
+  console.log('📊 Using individual DB environment variables for database connection');
+}
 
 // Create connection pool
 const pool = new Pool(dbConfig);
@@ -41,6 +60,10 @@ const testConnection = async () => {
     return true;
   } catch (error) {
     console.error('❌ Database connection failed:', error.message);
+    console.error('💡 Make sure you have:');
+    console.error('   1. Created a PostgreSQL database on Render');
+    console.error('   2. Added DATABASE_URL environment variable (auto-added by Render)');
+    console.error('   3. Or set DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD for local development');
     return false;
   }
 };
