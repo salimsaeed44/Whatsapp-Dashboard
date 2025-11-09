@@ -7,34 +7,49 @@ const express = require('express');
 const router = express.Router();
 
 // TODO: Import users controller and middleware
-// const usersController = require('../controllers/users.controller');
-// const { authenticate, authorize } = require('../middleware/auth.middleware');
+const usersController = require('../controllers/users.controller');
+const { authenticate, authorize, isAdmin, isOwnerOrAdmin } = require('../middleware');
 
-// Placeholder routes
-router.get('/', (req, res) => {
-  // TODO: Get all users (admin only)
-  res.status(501).json({ message: 'Get all users endpoint - Not implemented yet' });
-});
+// All routes require authentication
+router.use(authenticate);
 
-router.get('/:id', (req, res) => {
-  // TODO: Get user by ID
-  res.status(501).json({ message: 'Get user by ID endpoint - Not implemented yet' });
-});
+/**
+ * GET /api/users
+ * Get all users (admin only)
+ * Requires: Authentication + Admin role
+ */
+router.get('/', isAdmin, usersController.getAllUsers);
 
-router.put('/:id', (req, res) => {
-  // TODO: Update user
-  res.status(501).json({ message: 'Update user endpoint - Not implemented yet' });
-});
+/**
+ * GET /api/users/:id
+ * Get user by ID
+ * Requires: Authentication
+ * Access: User can view own profile, admin can view any
+ */
+router.get('/:id', isOwnerOrAdmin((req) => req.params.id), usersController.getUserById);
 
-router.delete('/:id', (req, res) => {
-  // TODO: Delete user (admin only)
-  res.status(501).json({ message: 'Delete user endpoint - Not implemented yet' });
-});
+/**
+ * PUT /api/users/:id
+ * Update user
+ * Requires: Authentication
+ * Access: User can update own profile, admin can update any
+ */
+router.put('/:id', isOwnerOrAdmin((req) => req.params.id), usersController.updateUser);
 
-router.get('/:id/profile', (req, res) => {
-  // TODO: Get user profile
-  res.status(501).json({ message: 'Get user profile endpoint - Not implemented yet' });
-});
+/**
+ * DELETE /api/users/:id
+ * Delete user (admin only)
+ * Requires: Authentication + Admin role
+ */
+router.delete('/:id', isAdmin, usersController.deleteUser);
+
+/**
+ * GET /api/users/:id/profile
+ * Get user profile
+ * Requires: Authentication
+ * Access: User can view own profile, admin can view any
+ */
+router.get('/:id/profile', isOwnerOrAdmin((req) => req.params.id), usersController.getUserProfile);
 
 module.exports = router;
 
