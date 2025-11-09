@@ -190,3 +190,7 @@ await whatsappService.sendLocationMessage(
 - Webhook يجب أن يستجيب خلال 20 ثانية
 - الرسائل يجب أن تكون في format صحيح حسب WhatsApp API requirements
 
+
+
+
+

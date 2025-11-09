@@ -47,35 +47,14 @@ router.post('/logout', authenticate, authController.logout);
  * Get current user profile
  * Requires authentication
  */
-router.get('/me', authenticate, (req, res) => {
-  // TODO: Implement get current user
-  // This should return the authenticated user's profile
-  // req.user is available from authenticate middleware
-  res.status(501).json({
-    message: 'Get current user endpoint - Not implemented yet',
-    user: req.user // Placeholder: returns user from token
-  });
-});
+router.get('/me', authenticate, authController.getMe);
 
 /**
  * POST /api/auth/verify-token
  * Verify if current token is valid
  * Optional authentication (works with or without token)
  */
-router.post('/verify-token', optionalAuthenticate, (req, res) => {
-  // TODO: Implement token verification
-  if (req.user) {
-    res.json({
-      valid: true,
-      user: req.user
-    });
-  } else {
-    res.status(401).json({
-      valid: false,
-      message: 'No valid token provided'
-    });
-  }
-});
+router.post('/verify-token', authController.verifyTokenEndpoint);
 
 module.exports = router;
 

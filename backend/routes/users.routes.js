@@ -44,8 +44,16 @@ router.put('/:id', isOwnerOrAdmin((req) => req.params.id), usersController.updat
 router.delete('/:id', isAdmin, usersController.deleteUser);
 
 /**
+ * GET /api/users/profile
+ * Get current user profile
+ * Requires: Authentication
+ * Access: User can view own profile
+ */
+router.get('/profile', usersController.getUserProfile);
+
+/**
  * GET /api/users/:id/profile
- * Get user profile
+ * Get user profile by ID
  * Requires: Authentication
  * Access: User can view own profile, admin can view any
  */

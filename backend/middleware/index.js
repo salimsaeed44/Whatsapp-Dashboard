@@ -4,7 +4,16 @@
  */
 
 const { authenticate, optionalAuthenticate } = require('./auth.middleware');
-const { authorize, isAdmin, isAdminOrUser, isOwnerOrAdmin } = require('./role.middleware');
+const { 
+  authorize, 
+  isAdmin, 
+  isAdminOrSupervisor,
+  isAdminOrSupervisorOrEmployee,
+  isAdminOrUser, 
+  isOwnerOrAdmin,
+  canManageEmployees,
+  canViewAllConversations
+} = require('./role.middleware');
 
 module.exports = {
   // Authentication middleware
@@ -14,6 +23,10 @@ module.exports = {
   // Authorization middleware
   authorize,
   isAdmin,
+  isAdminOrSupervisor,
+  isAdminOrSupervisorOrEmployee,
   isAdminOrUser,
-  isOwnerOrAdmin
+  isOwnerOrAdmin,
+  canManageEmployees,
+  canViewAllConversations
 };
