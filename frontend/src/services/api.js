@@ -1,6 +1,12 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+// API Base URL - Use environment variable or default to Render backend URL
+// For local development: http://localhost:3000/api
+// For production: https://whatsapp-dashboard-encw.onrender.com/api
+const API_URL = import.meta.env.VITE_API_URL || 
+  (import.meta.env.PROD 
+    ? 'https://whatsapp-dashboard-encw.onrender.com/api' 
+    : 'http://localhost:3000/api');
 
 // Create axios instance
 const api = axios.create({

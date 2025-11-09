@@ -1,0 +1,16 @@
+# Render Static Site Configuration for Frontend
+# This file is used to deploy the frontend as a Static Site on Render
+
+# Static Site Service
+services:
+  - type: web
+    name: whatsapp-dashboard-frontend
+    env: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://whatsapp-dashboard-encw.onrender.com/api
+      - key: VITE_NODE_ENV
+        value: production
+
