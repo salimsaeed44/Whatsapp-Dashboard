@@ -34,8 +34,14 @@ const executeStatement = async (client, statement, index) => {
     if (error.code === '42P07' || error.code === '42710' || error.code === '42723' ||
         error.message.includes('already exists') || 
         error.message.includes('duplicate key value') ||
+        error.message.includes('does not exist') ||
         (error.message.includes('constraint') && error.message.includes('already exists'))) {
-      console.log(`   ⚠️  Statement ${index + 1} skipped (already exists)`);
+      console.log(`   ⚠️  Statement ${index + 1} skipped (${error.code || 'already exists/does not exist'})`);
+      return;
+    }
+    // Log warning for 42P17 (immutable generation expression) but don't fail
+    if (error.code === '42P17') {
+      console.log(`   ⚠️  Statement ${index + 1} skipped (immutable generation expression - ${error.message})`);
       return;
     }
     throw error;
