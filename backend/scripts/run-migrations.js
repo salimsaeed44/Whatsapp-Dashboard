@@ -8,7 +8,7 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-const { query, testConnection, close } = require('../config/database');
+const { pool, testConnection, close } = require('../config/database');
 
 const MIGRATIONS_DIR = path.join(__dirname, '..', 'migrations');
 
@@ -27,24 +27,28 @@ const runMigration = async (filename) => {
   
   console.log(`📄 Running migration: ${filename}`);
   
+  const client = await pool.connect();
   try {
-    // Split SQL by semicolons and execute each statement
-    const statements = sql
-      .split(';')
-      .map(s => s.trim())
-      .filter(s => s.length > 0 && !s.startsWith('--'));
+    await client.query('BEGIN');
     
-    for (const statement of statements) {
-      if (statement.trim()) {
-        await query(statement);
-      }
-    }
+    // Execute the entire SQL file as a single transaction
+    // This handles complex SQL statements like CREATE FUNCTION properly
+    await client.query(sql);
     
+    await client.query('COMMIT');
     console.log(`✅ Migration completed: ${filename}`);
     return true;
   } catch (error) {
-    console.error(`❌ Migration failed: ${filename}`, error.message);
+    await client.query('ROLLBACK');
+    console.error(`❌ Migration failed: ${filename}`);
+    console.error(`   Error: ${error.message}`);
+    console.error(`   Code: ${error.code}`);
+    if (error.detail) {
+      console.error(`   Detail: ${error.detail}`);
+    }
     throw error;
+  } finally {
+    client.release();
   }
 };
 
@@ -52,11 +56,14 @@ const runMigration = async (filename) => {
 const runMigrations = async () => {
   try {
     console.log('🚀 Starting database migrations...');
+    console.log('📍 Environment:', process.env.NODE_ENV || 'development');
     
     // Test database connection
+    console.log('🔌 Testing database connection...');
     const connected = await testConnection();
     if (!connected) {
       console.error('❌ Database connection failed. Cannot run migrations.');
+      console.error('💡 Make sure DATABASE_URL is set correctly in environment variables.');
       process.exit(1);
     }
     
@@ -69,14 +76,23 @@ const runMigrations = async () => {
       return;
     }
     
+    // List all migration files
+    console.log('📋 Migration files to run:');
+    migrationFiles.forEach((file, index) => {
+      console.log(`   ${index + 1}. ${file}`);
+    });
+    
     // Run migrations in order
+    console.log('\n🚀 Running migrations...\n');
     for (const file of migrationFiles) {
       await runMigration(file);
     }
     
-    console.log('✅ All migrations completed successfully!');
+    console.log('\n✅ All migrations completed successfully!');
+    console.log('🎉 Database schema is ready!');
   } catch (error) {
-    console.error('❌ Migration process failed:', error);
+    console.error('\n❌ Migration process failed:', error.message);
+    console.error('💡 Check the error above for details.');
     process.exit(1);
   } finally {
     await close();
@@ -85,4 +101,5 @@ const runMigrations = async () => {
 
 // Run migrations
 runMigrations();
+
 
