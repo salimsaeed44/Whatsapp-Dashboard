@@ -21,6 +21,26 @@ const ChatWindow = ({ conversation, user }) => {
     }
   }, [conversation]);
 
+  // Poll for message status updates (only for outgoing messages that aren't read yet)
+  useEffect(() => {
+    if (!conversation) return;
+
+    const statusInterval = setInterval(() => {
+      // Check if there are outgoing messages that need status updates
+      const hasOutgoingMessages = messages.some(msg => 
+        (msg.direction === 'outgoing' || msg.direction === 'outbound') && 
+        msg.status !== 'read' && 
+        msg.status !== 'failed'
+      );
+      
+      if (hasOutgoingMessages) {
+        loadMessages();
+      }
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(statusInterval);
+  }, [conversation, messages]);
+
   useEffect(() => {
     // Scroll to bottom when messages change, but wait a bit for DOM update
     const timer = setTimeout(() => {
