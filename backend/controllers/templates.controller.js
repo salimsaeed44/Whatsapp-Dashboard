@@ -4,6 +4,7 @@
  */
 
 const Template = require('../models/template.model');
+const templatesService = require('../services/whatsapp/templates.service');
 
 /**
  * Get all templates
@@ -110,7 +111,7 @@ const getTemplateById = async (req, res) => {
 };
 
 /**
- * Create template
+ * Create template and submit to Meta
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  */
@@ -119,25 +120,61 @@ const createTemplate = async (req, res) => {
     const {
       name,
       content,
-      category,
+      category = 'UTILITY',
       language = 'ar',
-      status = 'pending_approval',
-      whatsapp_template_id,
-      variables = [],
-      metadata = {}
+      components, // Meta API format components
+      submitToMeta = true // Whether to submit to Meta
     } = req.body;
 
     const currentUser = req.user;
 
     // Validate required fields
-    if (!name || !content) {
+    if (!name) {
       return res.status(400).json({
         error: 'Validation error',
-        message: 'Name and content are required'
+        message: 'Template name is required'
       });
     }
 
-    // Create template
+    let metaResponse = null;
+    let whatsapp_template_id = null;
+    let status = 'draft';
+
+    // Submit to Meta if requested
+    if (submitToMeta) {
+      try {
+        // Build components from content if not provided
+        let templateComponents = components;
+        
+        if (!templateComponents && content) {
+          // Simple text template
+          templateComponents = {
+            body: {
+              text: content,
+              example: {}
+            }
+          };
+        }
+
+        metaResponse = await templatesService.createTemplate({
+          name: name.toLowerCase().replace(/\s+/g, '_'), // Meta requires lowercase with underscores
+          category,
+          language,
+          components: templateComponents
+        });
+
+        whatsapp_template_id = metaResponse.template_id;
+        status = metaResponse.status === 'APPROVED' ? 'approved' : 'pending_approval';
+      } catch (metaError) {
+        console.error('Meta API error:', metaError);
+        return res.status(400).json({
+          error: 'Meta API error',
+          message: metaError.message || 'Failed to submit template to Meta'
+        });
+      }
+    }
+
+    // Save to local database
     const template = await Template.createTemplate({
       name,
       content,
@@ -145,14 +182,18 @@ const createTemplate = async (req, res) => {
       language,
       status,
       whatsapp_template_id,
-      variables,
+      variables: [],
       created_by: currentUser?.id || null,
-      metadata
+      metadata: {
+        meta_response: metaResponse?.data,
+        submitted_to_meta: submitToMeta
+      }
     });
 
     res.status(201).json({
-      message: 'Template created successfully',
-      data: template
+      message: submitToMeta ? 'Template created and submitted to Meta successfully' : 'Template created successfully',
+      data: template,
+      meta_response: metaResponse
     });
   } catch (error) {
     console.error('Create template error:', error);
@@ -288,11 +329,130 @@ const deleteTemplate = async (req, res) => {
   }
 };
 
+/**
+ * Sync templates from Meta
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+const syncTemplatesFromMeta = async (req, res) => {
+  try {
+    const { limit = 100, after } = req.query;
+
+    // Get templates from Meta
+    const metaTemplates = await templatesService.getTemplates({
+      limit: parseInt(limit),
+      after
+    });
+
+    // Sync with local database
+    const syncedTemplates = [];
+    for (const metaTemplate of metaTemplates.templates) {
+      // Check if template exists locally
+      let localTemplate = await Template.findTemplateByWhatsAppId(metaTemplate.id);
+      
+      if (!localTemplate) {
+        // Create new template in local database
+        localTemplate = await Template.createTemplate({
+          name: metaTemplate.name,
+          content: metaTemplate.components?.find(c => c.type === 'BODY')?.text || '',
+          category: metaTemplate.category?.toLowerCase() || 'utility',
+          language: metaTemplate.language || 'ar',
+          status: metaTemplate.status?.toLowerCase() || 'pending_approval',
+          whatsapp_template_id: metaTemplate.id,
+          variables: [],
+          metadata: {
+            meta_template: metaTemplate,
+            synced_from_meta: true
+          }
+        });
+      } else {
+        // Update existing template
+        localTemplate = await Template.updateTemplate(localTemplate.id, {
+          status: metaTemplate.status?.toLowerCase() || localTemplate.status,
+          metadata: {
+            ...localTemplate.metadata,
+            meta_template: metaTemplate,
+            last_synced: new Date()
+          }
+        });
+      }
+
+      syncedTemplates.push(localTemplate);
+    }
+
+    res.status(200).json({
+      message: 'Templates synced from Meta successfully',
+      data: syncedTemplates,
+      meta_paging: metaTemplates.paging
+    });
+  } catch (error) {
+    console.error('Sync templates from Meta error:', error);
+    res.status(500).json({
+      error: 'Failed to sync templates from Meta',
+      message: error.message
+    });
+  }
+};
+
+/**
+ * Delete template from Meta
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+const deleteTemplateFromMeta = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const currentUser = req.user;
+
+    // Check permissions (admin only)
+    if (currentUser.role !== 'admin') {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'Only administrators can delete templates from Meta'
+      });
+    }
+
+    // Get template from local database
+    const template = await Template.findTemplateById(id);
+    if (!template) {
+      return res.status(404).json({
+        error: 'Template not found',
+        message: 'Template with the specified ID does not exist'
+      });
+    }
+
+    if (!template.whatsapp_template_id) {
+      return res.status(400).json({
+        error: 'Validation error',
+        message: 'Template is not linked to Meta'
+      });
+    }
+
+    // Delete from Meta
+    await templatesService.deleteTemplate(template.whatsapp_template_id);
+
+    // Delete from local database (soft delete)
+    await Template.deleteTemplate(id);
+
+    res.status(200).json({
+      message: 'Template deleted from Meta and local database successfully'
+    });
+  } catch (error) {
+    console.error('Delete template from Meta error:', error);
+    res.status(500).json({
+      error: 'Failed to delete template from Meta',
+      message: error.message
+    });
+  }
+};
+
 module.exports = {
   getAllTemplates,
   getTemplateById,
   createTemplate,
   updateTemplate,
-  deleteTemplate
+  deleteTemplate,
+  syncTemplatesFromMeta,
+  deleteTemplateFromMeta
 };
 

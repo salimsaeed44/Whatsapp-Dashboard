@@ -122,6 +122,33 @@ const findTemplateById = async (templateId) => {
 };
 
 /**
+ * Find template by WhatsApp template ID
+ * @param {string} whatsappTemplateId - WhatsApp template ID
+ * @returns {Promise<Object|null>} Template object or null
+ */
+const findTemplateByWhatsAppId = async (whatsappTemplateId) => {
+  try {
+    const result = await query(
+      `SELECT * FROM templates WHERE whatsapp_template_id = $1 AND deleted_at IS NULL`,
+      [whatsappTemplateId]
+    );
+
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    // Parse JSONB fields
+    const template = result.rows[0];
+    template.variables = typeof template.variables === 'string' ? JSON.parse(template.variables) : template.variables;
+    template.metadata = typeof template.metadata === 'string' ? JSON.parse(template.metadata) : template.metadata;
+
+    return template;
+  } catch (error) {
+    throw error;
+  }
+};
+
+/**
  * Get all templates with pagination and filters
  * @param {Object} options - Query options
  * @returns {Promise<Object>} Object with templates array and total count
@@ -342,6 +369,7 @@ const deleteTemplate = async (templateId) => {
 module.exports = {
   createTemplate,
   findTemplateById,
+  findTemplateByWhatsAppId,
   getAllTemplates,
   updateTemplate,
   deleteTemplate

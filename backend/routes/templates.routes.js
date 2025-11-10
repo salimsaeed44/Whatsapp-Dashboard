@@ -47,5 +47,19 @@ router.patch('/:id', templatesController.updateTemplate);
  */
 router.delete('/:id', isAdmin, templatesController.deleteTemplate);
 
+/**
+ * GET /api/templates/sync/meta
+ * Sync templates from Meta
+ * Requires: Authentication
+ */
+router.get('/sync/meta', templatesController.syncTemplatesFromMeta);
+
+/**
+ * DELETE /api/templates/:id/meta
+ * Delete template from Meta (admin only)
+ * Requires: Authentication (admin)
+ */
+router.delete('/:id/meta', isAdmin, templatesController.deleteTemplateFromMeta);
+
 module.exports = router;
 
