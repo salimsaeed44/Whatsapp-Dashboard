@@ -19,8 +19,7 @@ CREATE TABLE IF NOT EXISTS messages (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     delivered_at TIMESTAMP WITH TIME ZONE,
     read_at TIMESTAMP WITH TIME ZONE,
-    deleted_at TIMESTAMP WITH TIME ZONE,
-    day_name VARCHAR(10) GENERATED ALWAYS AS (TO_CHAR(created_at, 'Day')) STORED
+    deleted_at TIMESTAMP WITH TIME ZONE
 );
 
 CREATE INDEX IF NOT EXISTS idx_messages_phone_number ON messages(phone_number);
