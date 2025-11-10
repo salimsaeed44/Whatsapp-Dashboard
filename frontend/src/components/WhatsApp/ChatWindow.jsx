@@ -21,7 +21,11 @@ const ChatWindow = ({ conversation, user }) => {
   }, [conversation]);
 
   useEffect(() => {
-    scrollToBottom();
+    // Scroll to bottom when messages change, but wait a bit for DOM update
+    const timer = setTimeout(() => {
+      scrollToBottom();
+    }, 100);
+    return () => clearTimeout(timer);
   }, [messages]);
 
   const loadMessages = async () => {
@@ -33,7 +37,16 @@ const ChatWindow = ({ conversation, user }) => {
         limit: 100,
         offset: 0,
       });
-      setMessages(response.data || response.messages || []);
+      let messagesList = response.data || response.messages || [];
+      
+      // Sort messages by created_at ascending (oldest first, newest last)
+      messagesList.sort((a, b) => {
+        const dateA = new Date(a.created_at || a.timestamp || 0);
+        const dateB = new Date(b.created_at || b.timestamp || 0);
+        return dateA - dateB; // Ascending order (oldest to newest)
+      });
+      
+      setMessages(messagesList);
     } catch (error) {
       console.error('Error loading messages:', error);
     } finally {
@@ -53,8 +66,18 @@ const ChatWindow = ({ conversation, user }) => {
         type: 'text',
       });
 
-      // Add message to local state
-      setMessages(prev => [...prev, response.data || response.message]);
+      // Add message to local state (append to end)
+      const newMsg = response.data || response.message;
+      setMessages(prev => {
+        // Ensure the new message is added at the end (newest)
+        const updated = [...prev, newMsg];
+        // Sort to ensure correct order (oldest to newest)
+        return updated.sort((a, b) => {
+          const dateA = new Date(a.created_at || a.timestamp || 0);
+          const dateB = new Date(b.created_at || b.timestamp || 0);
+          return dateA - dateB;
+        });
+      });
       setNewMessage('');
       inputRef.current?.focus();
     } catch (error) {
@@ -73,7 +96,9 @@ const ChatWindow = ({ conversation, user }) => {
   };
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
   };
 
   const formatTime = (dateString) => {
@@ -164,7 +189,7 @@ const ChatWindow = ({ conversation, user }) => {
               </div>
             </div>
 
-            {/* Messages */}
+            {/* Messages - Oldest to Newest (displayed from top to bottom) */}
             {messages.map((message) => {
               const isSent = message.direction === 'outbound' || message.user_id === user?.id;
               const isSystem = message.type === 'system';
@@ -206,6 +231,7 @@ const ChatWindow = ({ conversation, user }) => {
                 </div>
               );
             })}
+            {/* Scroll anchor - always at bottom for new messages */}
             <div ref={messagesEndRef} />
           </>
         )}

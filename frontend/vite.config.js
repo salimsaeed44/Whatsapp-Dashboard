@@ -29,5 +29,12 @@ export default defineConfig({
         }
       }
     }
+  },
+  // Ensure proper handling of routes in production
+  preview: {
+    port: 4173,
+    strictPort: true,
+    // Fallback to index.html for all routes (SPA routing)
+    // This is handled by _redirects file in production (Render)
   }
 })
