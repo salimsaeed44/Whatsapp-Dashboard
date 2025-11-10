@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { messagesService } from '../services/messages.service';
 import Layout from '../components/Layout';
+import MessageStatus from '../components/WhatsApp/MessageStatus';
 
 const Messages = () => {
   const [messages, setMessages] = useState([]);
@@ -54,15 +55,12 @@ const Messages = () => {
                         }`}>
                           {message.direction === 'incoming' ? 'وارد' : 'صادر'}
                         </span>
-                        <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          message.status === 'delivered' 
-                            ? 'bg-green-100 text-green-800'
-                            : message.status === 'read'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {message.status}
-                        </span>
+                        {message.direction === 'outgoing' && (
+                          <MessageStatus 
+                            status={message.status || 'sent'} 
+                            direction={message.direction} 
+                          />
+                        )}
                       </div>
                       <div className="mt-2 text-sm text-gray-500">
                         {message.content}

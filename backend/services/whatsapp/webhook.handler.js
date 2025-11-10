@@ -107,10 +107,24 @@ const processMessageChange = async (value) => {
       }
     }
 
-    // Handle message status updates
+    // Handle message status updates (from message_status webhook field)
     if (value.statuses && Array.isArray(value.statuses)) {
       for (const status of value.statuses) {
         await handleMessageStatus(status);
+      }
+    }
+    
+    // Also handle status updates from messages field (some webhooks send status in messages)
+    if (value.messages && Array.isArray(value.messages)) {
+      for (const message of value.messages) {
+        // Check if this is a status update (has status field but no content)
+        if (message.status && !message.text && !message.image && !message.video && !message.audio && !message.document) {
+          await handleMessageStatus({
+            id: message.id || message.message_id,
+            status: message.status,
+            timestamp: message.timestamp
+          });
+        }
       }
     }
   } catch (error) {
@@ -341,13 +355,29 @@ const handleMessageStatus = async (status) => {
 
 /**
  * Process status change event
+ * Handles message status updates from message_status webhook field
  * 
  * @param {Object} value - Status change value object
  */
 const processStatusChange = async (value) => {
   try {
-    // Handle account status changes, phone number status, etc.
     console.log('📊 Status change received:', value);
+    
+    // Handle message status updates (from message_status webhook field)
+    if (value.statuses && Array.isArray(value.statuses)) {
+      for (const status of value.statuses) {
+        await handleMessageStatus(status);
+      }
+    }
+    
+    // Also check if status is directly in value (some webhook formats)
+    if (value.id && value.status) {
+      await handleMessageStatus({
+        id: value.id,
+        status: value.status,
+        timestamp: value.timestamp
+      });
+    }
     
     // TODO: Handle account status changes
     // if (value.event === 'account_review_update') {
@@ -355,6 +385,7 @@ const processStatusChange = async (value) => {
     // }
   } catch (error) {
     console.error('Error processing status change:', error);
+    // Don't throw error to prevent webhook from failing
   }
 };
 

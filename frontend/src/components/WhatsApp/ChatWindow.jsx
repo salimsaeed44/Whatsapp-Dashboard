@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { messagesService } from '../../services/messages.service';
 import { useAuth } from '../../context/AuthContext';
 import TransferModal from './TransferModal';
+import MessageStatus from './MessageStatus';
 
 const ChatWindow = ({ conversation, user }) => {
   const [messages, setMessages] = useState([]);
@@ -191,7 +192,7 @@ const ChatWindow = ({ conversation, user }) => {
 
             {/* Messages - Oldest to Newest (displayed from top to bottom) */}
             {messages.map((message) => {
-              const isSent = message.direction === 'outbound' || message.user_id === user?.id;
+              const isSent = message.direction === 'outgoing' || message.direction === 'outbound' || message.user_id === user?.id;
               const isSystem = message.type === 'system';
 
               if (isSystem) {
@@ -222,9 +223,10 @@ const ChatWindow = ({ conversation, user }) => {
                     <div className={`flex items-center justify-end gap-1 mt-1 ${isSent ? 'text-whatsapp-text-secondary' : 'text-whatsapp-text-tertiary'}`}>
                       <span className="text-xs">{formatTime(message.created_at)}</span>
                       {isSent && (
-                        <span className="text-xs">
-                          {message.status === 'delivered' ? '✓✓' : '✓'}
-                        </span>
+                        <MessageStatus 
+                          status={message.status || 'sent'} 
+                          direction={message.direction || 'outgoing'} 
+                        />
                       )}
                     </div>
                   </div>
