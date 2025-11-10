@@ -1,4 +1,6 @@
-# React Router redirects for Render
-# This file ensures all routes are handled by index.html
+# React Router redirects for Render Static Sites
+# This file ensures all routes are handled by index.html for client-side routing
+# Render Static Sites support _redirects file in the public directory
 /*    /index.html   200
+
 

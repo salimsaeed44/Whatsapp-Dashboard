@@ -12,16 +12,26 @@ const { Pool } = require('pg');
 let dbConfig;
 
 if (process.env.DATABASE_URL) {
-  // Use DATABASE_URL if provided (Render, Heroku, etc.)
+  // Use DATABASE_URL if provided (Render, Heroku, Supabase, etc.)
+  // Supabase requires SSL, so we enable it for all DATABASE_URL connections
+  const isSupabase = process.env.DATABASE_URL.includes('supabase') || process.env.DATABASE_URL.includes('supabase.co');
+  const isProduction = process.env.NODE_ENV === 'production';
+  
   dbConfig = {
     connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-    // Connection pool settings
-    max: parseInt(process.env.DB_POOL_MAX || '20', 10),
+    // Enable SSL for production and Supabase (both require SSL)
+    ssl: (isProduction || isSupabase) ? { rejectUnauthorized: false } : false,
+    // Connection pool settings - optimized for Supabase connection pooling
+    max: parseInt(process.env.DB_POOL_MAX || (isSupabase ? '10' : '20'), 10), // Supabase recommends smaller pools
     idleTimeoutMillis: parseInt(process.env.DB_POOL_IDLE_TIMEOUT || '30000', 10),
-    connectionTimeoutMillis: parseInt(process.env.DB_POOL_CONNECTION_TIMEOUT || '2000', 10),
+    connectionTimeoutMillis: parseInt(process.env.DB_POOL_CONNECTION_TIMEOUT || (isSupabase ? '15000' : '10000'), 10), // Increased for Supabase
   };
+  
   console.log('📊 Using DATABASE_URL for database connection');
+  if (isSupabase) {
+    console.log('🔐 Supabase connection detected - SSL enabled');
+    console.log('📡 Using optimized connection pool settings for Supabase');
+  }
 } else {
   // Fallback to individual environment variables (local development)
   dbConfig = {
