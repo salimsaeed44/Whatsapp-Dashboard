@@ -150,10 +150,18 @@ const createTemplate = async (req, res) => {
           // Simple text template
           templateComponents = {
             body: {
-              text: content,
-              example: {}
+              text: content
             }
           };
+
+          // Add example for body if there are variables
+          const bodyVariables = content.match(/\{\{(\d+)\}\}/g) || [];
+          if (bodyVariables.length > 0) {
+            const exampleValues = bodyVariables.map((_, index) => `Sample${index + 1}`);
+            templateComponents.body.example = {
+              body_text: [exampleValues]
+            };
+          }
         }
 
         metaResponse = await templatesService.createTemplate({

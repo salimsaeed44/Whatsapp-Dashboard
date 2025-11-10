@@ -65,21 +65,51 @@ const createTemplate = async (templateData) => {
 
     // Header component
     if (templateData.components?.header) {
-      components.push({
+      const headerComponent = {
         type: 'HEADER',
-        format: templateData.components.header.format || 'TEXT',
-        text: templateData.components.header.text,
-        example: templateData.components.header.example
-      });
+        format: templateData.components.header.format || 'TEXT'
+      };
+
+      // Add text for TEXT format
+      if (headerComponent.format === 'TEXT' && templateData.components.header.text) {
+        headerComponent.text = templateData.components.header.text;
+        // Meta requires example.header_text for TEXT headers
+        headerComponent.example = {
+          header_text: [templateData.components.header.text]
+        };
+      }
+
+      // Add example for media formats (IMAGE, VIDEO, DOCUMENT)
+      if (templateData.components.header.example) {
+        headerComponent.example = templateData.components.header.example;
+      }
+
+      components.push(headerComponent);
     }
 
     // Body component
     if (templateData.components?.body) {
-      components.push({
+      const bodyComponent = {
         type: 'BODY',
-        text: templateData.components.body.text,
-        example: templateData.components.body.example
-      });
+        text: templateData.components.body.text
+      };
+
+      // Add example if provided or create default
+      if (templateData.components.body.example) {
+        bodyComponent.example = templateData.components.body.example;
+      } else if (templateData.components.body.text) {
+        // Extract variables from text ({{1}}, {{2}}, etc.)
+        const variables = templateData.components.body.text.match(/\{\{(\d+)\}\}/g) || [];
+        if (variables.length > 0) {
+          // Create example with sample values
+          const exampleValues = variables.map((_, index) => `Sample${index + 1}`);
+          bodyComponent.example = {
+            body_text: [exampleValues]
+          };
+        }
+      }
+
+      components.push(bodyComponent);
     }
 
     // Footer component

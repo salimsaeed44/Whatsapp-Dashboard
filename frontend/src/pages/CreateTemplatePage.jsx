@@ -30,10 +30,19 @@ const CreateTemplatePage = () => {
       // Build components for Meta API
       const components = {
         body: {
-          text: formData.body,
-          example: {}
+          text: formData.body
         }
       };
+
+      // Add example for body if there are variables
+      const bodyVariables = formData.body.match(/\{\{(\d+)\}\}/g) || [];
+      if (bodyVariables.length > 0) {
+        // Create example values for variables
+        const exampleValues = bodyVariables.map((_, index) => `Sample${index + 1}`);
+        components.body.example = {
+          body_text: [exampleValues]
+        };
+      }
 
       // Header
       if (formData.headerType !== 'NONE') {
@@ -41,22 +50,30 @@ const CreateTemplatePage = () => {
           components.header = {
             text: formData.headerText,
             format: 'TEXT',
-            example: {}
+            example: {
+              header_text: [formData.headerText] // Meta requires this for TEXT headers
+            }
           };
         } else if (formData.headerType === 'IMAGE' && formData.headerImage) {
           components.header = {
             format: 'IMAGE',
-            example: { header_handle: [formData.headerImage] }
+            example: { 
+              header_handle: [formData.headerImage] 
+            }
           };
         } else if (formData.headerType === 'VIDEO' && formData.headerVideo) {
           components.header = {
             format: 'VIDEO',
-            example: { header_handle: [formData.headerVideo] }
+            example: { 
+              header_handle: [formData.headerVideo] 
+            }
           };
         } else if (formData.headerType === 'DOCUMENT' && formData.headerDocument) {
           components.header = {
             format: 'DOCUMENT',
-            example: { header_handle: [formData.headerDocument] }
+            example: { 
+              header_handle: [formData.headerDocument] 
+            }
           };
         }
       }
