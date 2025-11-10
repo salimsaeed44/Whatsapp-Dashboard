@@ -250,10 +250,18 @@ const handleIncomingMessage = async (message, value) => {
     if (!conversation.assigned_to && conversation.status === 'open') {
       try {
         // Use round robin distribution by default
-        await distributionService.autoAssign(conversation.id, 'round_robin');
-        console.log('✅ Conversation auto-assigned:', conversation.id);
+        const assignmentResult = await distributionService.autoAssign(conversation.id, 'round_robin');
+        
+        if (assignmentResult.success) {
+          console.log('✅ Conversation auto-assigned:', conversation.id, 'to employee:', assignmentResult.assigned_to);
+        } else {
+          // No employees available or assignment failed - conversation remains unassigned
+          console.warn('⚠️ Conversation could not be auto-assigned:', assignmentResult.reason || 'unknown reason');
+          console.warn('   Conversation will remain unassigned until an employee is available or manually assigned.');
+        }
       } catch (error) {
-        console.error('⚠️ Error auto-assigning conversation:', error);
+        // Fallback error handling (should not reach here with new implementation)
+        console.error('⚠️ Unexpected error during auto-assignment:', error.message);
         // Don't fail message processing if auto-assignment fails
       }
     }

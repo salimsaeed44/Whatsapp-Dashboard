@@ -33,7 +33,12 @@ class DistributionService {
       const employees = employeesResult.users;
       
       if (employees.length === 0) {
-        throw new Error('No active employees available for assignment');
+        console.warn('⚠️ No active employees available for round robin assignment. Conversation will remain unassigned.');
+        return {
+          success: false,
+          reason: 'no_active_employees',
+          message: 'No active employees available for assignment'
+        };
       }
 
       // Get current assignments count for each employee
@@ -82,8 +87,12 @@ class DistributionService {
         method: 'round_robin'
       };
     } catch (error) {
-      console.error('Round Robin distribution error:', error);
-      throw error;
+      console.error('Round Robin distribution error:', error.message);
+      return {
+        success: false,
+        reason: 'assignment_failed',
+        message: error.message
+      };
     }
   }
 
@@ -107,7 +116,12 @@ class DistributionService {
       const employees = employeesResult.users;
       
       if (employees.length === 0) {
-        throw new Error('No active employees available for assignment');
+        console.warn('⚠️ No active employees available for load balancing assignment. Conversation will remain unassigned.');
+        return {
+          success: false,
+          reason: 'no_active_employees',
+          message: 'No active employees available for assignment'
+        };
       }
 
       // Get workload for each employee (active conversations + unread messages)
@@ -177,8 +191,12 @@ class DistributionService {
         workload_info: workload[0]
       };
     } catch (error) {
-      console.error('Load Balancing distribution error:', error);
-      throw error;
+      console.error('Load Balancing distribution error:', error.message);
+      return {
+        success: false,
+        reason: 'assignment_failed',
+        message: error.message
+      };
     }
   }
 
@@ -194,14 +212,27 @@ class DistributionService {
     try {
       // For high priority conversations, use load balancing
       // For normal priority, use round robin
+      let result;
       if (priority >= 7) {
-        return await this.loadBalancing(conversationId);
+        result = await this.loadBalancing(conversationId);
       } else {
-        return await this.roundRobin(conversationId);
+        result = await this.roundRobin(conversationId);
       }
+      
+      // If assignment failed, return the result
+      if (!result.success) {
+        return result;
+      }
+      
+      return result;
     } catch (error) {
-      console.error('Priority-based distribution error:', error);
-      throw error;
+      // Only log error, don't throw
+      console.error('Priority-based distribution error:', error.message);
+      return {
+        success: false,
+        reason: 'assignment_failed',
+        message: error.message
+      };
     }
   }
 
@@ -216,19 +247,35 @@ class DistributionService {
    */
   async autoAssign(conversationId, method = 'round_robin', options = {}) {
     try {
+      let result;
       switch (method) {
         case 'round_robin':
-          return await this.roundRobin(conversationId);
+          result = await this.roundRobin(conversationId);
+          break;
         case 'load_balancing':
-          return await this.loadBalancing(conversationId);
+          result = await this.loadBalancing(conversationId);
+          break;
         case 'priority':
-          return await this.priorityBased(conversationId, options.priority || 0);
+          result = await this.priorityBased(conversationId, options.priority || 0);
+          break;
         default:
           throw new Error(`Unknown distribution method: ${method}`);
       }
+      
+      // If assignment failed (e.g., no employees), return the result without throwing
+      if (!result.success) {
+        return result;
+      }
+      
+      return result;
     } catch (error) {
-      console.error('Auto-assign error:', error);
-      throw error;
+      // Only log error, don't throw - allow conversation to remain unassigned
+      console.error('Auto-assign error:', error.message);
+      return {
+        success: false,
+        reason: 'assignment_failed',
+        message: error.message
+      };
     }
   }
 
