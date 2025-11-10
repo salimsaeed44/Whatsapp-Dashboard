@@ -1,6 +1,7 @@
 -- Migration: Create conversations table
 -- Description: Creates the conversations table for managing customer conversations
 -- Date: 2025-01-17
+-- Extension already created in 001_create_users_table.sql
 
 CREATE TABLE IF NOT EXISTS conversations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
