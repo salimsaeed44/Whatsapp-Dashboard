@@ -75,5 +75,11 @@ export const conversationsService = {
     const response = await api.get('/conversations/workload/employees');
     return response.data;
   },
+
+  // Get my conversations (for employees)
+  getMyConversations: async (params = {}) => {
+    const response = await api.get('/conversations/my', { params });
+    return response.data;
+  },
 };
 

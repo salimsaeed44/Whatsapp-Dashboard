@@ -18,7 +18,7 @@ const Login = () => {
     try {
       const result = await login(email, password);
       if (result.success) {
-        navigate('/dashboard', { replace: true });
+        navigate('/chats', { replace: true });
       } else {
         setError(result.error || 'فشل تسجيل الدخول');
       }
@@ -31,20 +31,28 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow-md">
+    <div className="min-h-screen flex items-center justify-center bg-whatsapp-dark-bg whatsapp-bg-pattern">
+      <div className="max-w-md w-full space-y-8 p-8 bg-whatsapp-dark-panel rounded-lg shadow-xl border border-whatsapp-border">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+          <div className="flex justify-center mb-4">
+            <div className="w-16 h-16 bg-whatsapp-green rounded-full flex items-center justify-center">
+              <span className="text-3xl">💬</span>
+            </div>
+          </div>
+          <h2 className="text-center text-3xl font-extrabold text-whatsapp-text-primary">
             تسجيل الدخول
           </h2>
+          <p className="mt-2 text-center text-sm text-whatsapp-text-secondary">
+            WhatsApp Business Dashboard
+          </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+            <div className="bg-red-900 bg-opacity-50 border border-red-500 text-red-200 px-4 py-3 rounded">
               {error}
             </div>
           )}
-          <div className="rounded-md shadow-sm -space-y-px">
+          <div className="rounded-md -space-y-px">
             <div>
               <label htmlFor="email" className="sr-only">
                 البريد الإلكتروني
@@ -54,7 +62,7 @@ const Login = () => {
                 name="email"
                 type="email"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                className="appearance-none rounded-none relative block w-full px-3 py-2 bg-whatsapp-input-bg border border-whatsapp-border placeholder-whatsapp-text-tertiary text-whatsapp-text-primary rounded-t-md focus:outline-none focus:ring-2 focus:ring-whatsapp-green focus:border-whatsapp-green focus:z-10 sm:text-sm"
                 placeholder="البريد الإلكتروني"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -69,7 +77,7 @@ const Login = () => {
                 name="password"
                 type="password"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                className="appearance-none rounded-none relative block w-full px-3 py-2 bg-whatsapp-input-bg border border-whatsapp-border placeholder-whatsapp-text-tertiary text-whatsapp-text-primary rounded-b-md focus:outline-none focus:ring-2 focus:ring-whatsapp-green focus:border-whatsapp-green focus:z-10 sm:text-sm"
                 placeholder="كلمة المرور"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -81,7 +89,7 @@ const Login = () => {
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-whatsapp-green hover:bg-whatsapp-green-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-whatsapp-green disabled:opacity-50 transition-colors"
             >
               {loading ? 'جاري التسجيل...' : 'تسجيل الدخول'}
             </button>

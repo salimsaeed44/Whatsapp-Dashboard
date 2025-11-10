@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Conversations from './pages/Conversations';
 import Messages from './pages/Messages';
+import Chats from './pages/Chats';
 
 // Home route component that redirects based on auth status
 const HomeRoute = () => {
@@ -15,7 +16,7 @@ const HomeRoute = () => {
   }
   
   if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/chats" replace />;
   }
   
   return <Navigate to="/login" replace />;
@@ -32,6 +33,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/chats"
+            element={
+              <ProtectedRoute>
+                <Chats />
               </ProtectedRoute>
             }
           />

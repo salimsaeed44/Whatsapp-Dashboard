@@ -36,5 +36,11 @@ export const messagesService = {
     const response = await api.delete(`/messages/${id}`);
     return response.data;
   },
+
+  // Get messages by conversation ID
+  getByConversation: async (conversationId, params = {}) => {
+    const response = await api.get(`/conversations/${conversationId}/messages`, { params });
+    return response.data;
+  },
 };
 
