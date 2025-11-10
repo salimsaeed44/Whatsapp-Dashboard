@@ -1,5 +1,6 @@
 # Render Static Site Configuration for Frontend
 # This file is used to deploy the frontend as a Static Site on Render
+# Note: Routes configuration must be set in Render Dashboard for React Router
 
 # Static Site Service
 services:

@@ -20,31 +20,158 @@ const getMigrationFiles = () => {
   return files;
 };
 
+// Execute a single SQL statement with error handling
+const executeStatement = async (client, statement, index) => {
+  const trimmed = statement.trim();
+  if (!trimmed || trimmed === ';' || trimmed.startsWith('--')) {
+    return;
+  }
+  
+  try {
+    await client.query(trimmed);
+  } catch (error) {
+    // Skip if object already exists (idempotent migrations)
+    if (error.code === '42P07' || error.code === '42710' || error.code === '42723' ||
+        error.message.includes('already exists') || 
+        error.message.includes('duplicate key value') ||
+        (error.message.includes('constraint') && error.message.includes('already exists'))) {
+      console.log(`   ⚠️  Statement ${index + 1} skipped (already exists)`);
+      return;
+    }
+    throw error;
+  }
+};
+
+// Split SQL into statements, preserving dollar-quoted blocks
+const splitSQLStatements = (sql) => {
+  const statements = [];
+  let current = '';
+  let inDollarQuote = false;
+  let i = 0;
+  
+  while (i < sql.length) {
+    const char = sql[i];
+    const nextChar = sql[i + 1];
+    
+    // Check for dollar quote ($$)
+    if (char === '$' && nextChar === '$') {
+      inDollarQuote = !inDollarQuote;
+      current += char + nextChar;
+      i += 2;
+      continue;
+    }
+    
+    current += char;
+    
+    // If we're not in a dollar quote and hit semicolon, end the statement
+    if (!inDollarQuote && char === ';') {
+      const statement = current.trim();
+      if (statement && statement !== ';' && !statement.startsWith('--')) {
+        statements.push(statement);
+      }
+      current = '';
+    }
+    
+    i++;
+  }
+  
+  // Add remaining statement
+  if (current.trim() && !current.trim().startsWith('--')) {
+    statements.push(current.trim());
+  }
+  
+  return statements.filter(s => s.length > 0);
+};
+
 // Read and execute a migration file
 const runMigration = async (filename) => {
   const filePath = path.join(MIGRATIONS_DIR, filename);
-  const sql = fs.readFileSync(filePath, 'utf8');
+  let sql = fs.readFileSync(filePath, 'utf8');
   
   console.log(`📄 Running migration: ${filename}`);
   
+  // Remove comments (lines starting with --) but preserve dollar-quoted content
+  const lines = sql.split('\n');
+  const cleanedLines = [];
+  let inDollarQuote = false;
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    
+    // Check if line contains dollar quote
+    if (trimmed.includes('$$')) {
+      inDollarQuote = !inDollarQuote;
+      cleanedLines.push(line);
+      continue;
+    }
+    
+    // Skip comments only if not in dollar quote
+    if (!inDollarQuote && trimmed.startsWith('--')) {
+      continue; // Skip comment lines
+    }
+    
+    cleanedLines.push(line);
+  }
+  
+  sql = cleanedLines.join('\n');
+  
   const client = await pool.connect();
   try {
-    await client.query('BEGIN');
+    // Check if migration contains CREATE EXTENSION
+    const hasExtension = sql.toLowerCase().includes('create extension');
     
-    // Execute the entire SQL file as a single transaction
-    // This handles complex SQL statements like CREATE FUNCTION properly
-    await client.query(sql);
+    if (hasExtension) {
+      // Extract and execute CREATE EXTENSION separately (cannot be in transaction)
+      const extensionMatch = sql.match(/CREATE\s+EXTENSION\s+IF\s+NOT\s+EXISTS\s+"?([^"\s;]+)"?/i);
+      if (extensionMatch) {
+        try {
+          await client.query(`CREATE EXTENSION IF NOT EXISTS "${extensionMatch[1]}"`);
+          console.log(`   ✅ Extension created: ${extensionMatch[1]}`);
+        } catch (error) {
+          if (error.code === '42710' || error.message.includes('already exists')) {
+            console.log(`   ⚠️  Extension already exists: ${extensionMatch[1]}`);
+          } else {
+            throw error;
+          }
+        }
+      }
+      
+      // Remove CREATE EXTENSION from SQL
+      sql = sql.replace(/CREATE\s+EXTENSION\s+IF\s+NOT\s+EXISTS\s+"?[^"\s;]+"?;?\s*/gi, '').trim();
+    }
     
-    await client.query('COMMIT');
+    if (!sql || !sql.trim()) {
+      console.log(`✅ Migration completed: ${filename}`);
+      return true;
+    }
+    
+    // Split SQL into statements
+    const statements = splitSQLStatements(sql);
+    
+    if (statements.length === 0) {
+      console.log(`   ⚠️  No statements found`);
+      console.log(`✅ Migration completed: ${filename}`);
+      return true;
+    }
+    
+    console.log(`   Found ${statements.length} statement(s)`);
+    
+    // Execute statements one by one (not in transaction to handle functions properly)
+    for (let i = 0; i < statements.length; i++) {
+      await executeStatement(client, statements[i], i + 1);
+    }
+    
     console.log(`✅ Migration completed: ${filename}`);
     return true;
   } catch (error) {
-    await client.query('ROLLBACK');
     console.error(`❌ Migration failed: ${filename}`);
     console.error(`   Error: ${error.message}`);
     console.error(`   Code: ${error.code}`);
     if (error.detail) {
       console.error(`   Detail: ${error.detail}`);
+    }
+    if (error.position) {
+      console.error(`   Position: ${error.position}`);
     }
     throw error;
   } finally {
@@ -101,5 +228,3 @@ const runMigrations = async () => {
 
 // Run migrations
 runMigrations();
-
-
