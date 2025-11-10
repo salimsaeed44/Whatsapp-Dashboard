@@ -32,7 +32,9 @@ router.get('/', (req, res) => {
       broadcasts: '/api/broadcasts',
       statistics: '/api/statistics',
       notifications: '/api/notifications',
-      whatsapp: '/api/whatsapp'
+      whatsapp: '/api/whatsapp',
+      contacts: '/api/contacts',
+      automations: '/api/automations'
     }
   });
 });
@@ -47,6 +49,8 @@ const broadcastsRoutes = require('./broadcasts.routes');
 const statisticsRoutes = require('./statistics.routes');
 const notificationsRoutes = require('./notifications.routes');
 const whatsappRoutes = require('./whatsapp.routes');
+const contactsRoutes = require('./contacts.routes');
+const automationsRoutes = require('./automations.routes');
 
 // Mount routes (after health and info endpoints)
 router.use('/auth', authRoutes);
@@ -58,6 +62,8 @@ router.use('/broadcasts', broadcastsRoutes);
 router.use('/statistics', statisticsRoutes);
 router.use('/notifications', notificationsRoutes);
 router.use('/whatsapp', whatsappRoutes);
+router.use('/contacts', contactsRoutes);
+router.use('/automations', automationsRoutes);
 
 module.exports = router;
 

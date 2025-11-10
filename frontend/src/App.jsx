@@ -6,6 +6,11 @@ import Dashboard from './pages/Dashboard';
 import Conversations from './pages/Conversations';
 import Messages from './pages/Messages';
 import Chats from './pages/Chats';
+import TemplatesPage from './pages/TemplatesPage';
+import CreateTemplatePage from './pages/CreateTemplatePage';
+import ContactsPage from './pages/ContactsPage';
+import AutomationsPage from './pages/AutomationsPage';
+import DeliveryStatsPage from './pages/DeliveryStatsPage';
 
 // Home route component that redirects based on auth status
 const HomeRoute = () => {
@@ -57,6 +62,46 @@ function App() {
             element={
               <ProtectedRoute>
                 <Messages />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/templates"
+            element={
+              <ProtectedRoute>
+                <TemplatesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/templates/new"
+            element={
+              <ProtectedRoute>
+                <CreateTemplatePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/contacts"
+            element={
+              <ProtectedRoute>
+                <ContactsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/automations"
+            element={
+              <ProtectedRoute>
+                <AutomationsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/delivery-stats"
+            element={
+              <ProtectedRoute>
+                <DeliveryStatsPage />
               </ProtectedRoute>
             }
           />

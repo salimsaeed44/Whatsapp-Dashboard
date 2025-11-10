@@ -530,6 +530,41 @@ const updateMessageByWhatsAppId = async (whatsappMessageId, updateData) => {
   }
 };
 
+/**
+ * Get failed messages for retry
+ * @param {Object} options - Query options
+ * @param {number} options.limit - Maximum number of messages
+ * @param {number} options.maxRetries - Maximum retry count
+ * @returns {Promise<Array>} Array of failed messages
+ */
+const getFailedMessages = async (options = {}) => {
+  try {
+    const { limit = 100, maxRetries = 3 } = options;
+
+    const result = await query(
+      `SELECT * FROM messages
+       WHERE status = 'failed'
+       AND direction = 'outgoing'
+       AND deleted_at IS NULL
+       AND (metadata->>'retry_count' IS NULL OR (metadata->>'retry_count')::int < $1)
+       ORDER BY created_at ASC
+       LIMIT $2`,
+      [maxRetries, limit]
+    );
+
+    // Parse JSONB fields
+    const messages = result.rows.map(msg => {
+      msg.metadata = typeof msg.metadata === 'string' ? JSON.parse(msg.metadata) : msg.metadata;
+      msg.raw_payload = typeof msg.raw_payload === 'string' ? JSON.parse(msg.raw_payload) : msg.raw_payload;
+      return msg;
+    });
+
+    return messages;
+  } catch (error) {
+    throw error;
+  }
+};
+
 module.exports = {
   createMessage,
   findMessageById,
@@ -538,5 +573,6 @@ module.exports = {
   updateMessageStatus,
   getAllMessages,
   deleteMessage,
-  updateMessageByWhatsAppId
+  updateMessageByWhatsAppId,
+  getFailedMessages
 };

@@ -42,5 +42,11 @@ export const messagesService = {
     const response = await api.get(`/conversations/${conversationId}/messages`, { params });
     return response.data;
   },
+
+  // Retry failed messages
+  retryFailed: async (options = {}) => {
+    const response = await api.post('/messages/retry', options);
+    return response.data;
+  },
 };
 

@@ -10,6 +10,8 @@ const Conversation = require('./conversation.model');
 const Template = require('./template.model');
 const Broadcast = require('./broadcast.model');
 const Notification = require('./notification.model');
+const Contact = require('./contact.model');
+const Automation = require('./automation.model');
 
 module.exports = {
   User,
@@ -17,7 +19,9 @@ module.exports = {
   Conversation,
   Template,
   Broadcast,
-  Notification
+  Notification,
+  Contact,
+  Automation
 };
 
 

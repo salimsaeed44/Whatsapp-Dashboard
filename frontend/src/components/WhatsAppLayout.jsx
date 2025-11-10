@@ -23,7 +23,9 @@ const WhatsAppLayout = ({ children, selectedConversation, onSelectConversation }
     }
 
     if (activeView === 'templates') {
-      return <Templates />;
+      // Redirect to templates page instead of showing component
+      window.location.href = '/templates';
+      return null;
     }
 
     if (activeView === 'broadcasts') {

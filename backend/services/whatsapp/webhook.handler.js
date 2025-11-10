@@ -5,6 +5,7 @@
 
 const Message = require('../../models/message.model');
 const Conversation = require('../../models/conversation.model');
+const automationService = require('../automation.service');
 const distributionService = require('../distribution.service');
 const notificationService = require('../notification.service');
 
@@ -290,6 +291,25 @@ const handleIncomingMessage = async (message, value) => {
       } catch (error) {
         console.error('Error sending new message notification:', error);
         // Don't fail message processing if notification fails
+      }
+    }
+
+    // Process automations for incoming message
+    if (messageType === 'text' && content) {
+      try {
+        const automationResults = await automationService.processMessageAutomations({
+          phone_number: message.from,
+          content: content,
+          message_id: savedMessage.id,
+          conversation_id: conversation.id
+        });
+        
+        if (automationResults.length > 0) {
+          console.log('✅ Automations executed:', automationResults.length);
+        }
+      } catch (error) {
+        console.error('Error processing automations:', error);
+        // Don't fail message processing if automation fails
       }
     }
 

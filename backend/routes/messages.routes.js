@@ -56,5 +56,12 @@ router.patch('/:id/status', messagesController.updateMessageStatus);
  */
 router.delete('/:id', messagesController.deleteMessage);
 
+/**
+ * POST /api/messages/retry
+ * Retry failed messages
+ * Requires: Authentication
+ */
+router.post('/retry', messagesController.retryFailedMessages);
+
 module.exports = router;
 
