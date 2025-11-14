@@ -149,13 +149,17 @@ const sendMessage = async (req, res) => {
       conversation_id: conversation.id
     });
 
+    // The persistOutgoingMessage function already saved the message and emitted socket event
+    // result.savedMessage contains the saved message if successful
     res.status(201).json({
       message: 'Message sent successfully',
       data: {
         message_id: result.message_id,
+        id: result.savedMessage?.id,
         status: 'sent',
         phone_number,
-        conversation_id: conversation.id
+        conversation_id: conversation.id,
+        saved_message: result.savedMessage
       }
     });
   } catch (error) {

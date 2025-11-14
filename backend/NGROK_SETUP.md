@@ -167,3 +167,5 @@ curl "https://your-ngrok-url.ngrok.io/api/whatsapp/webhook?hub.mode=subscribe&hu
 
 
 
+
+

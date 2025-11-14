@@ -61,9 +61,10 @@ class WhatsAppService {
     const result = await messageSender.sendTextMessage(to, text, options);
     
     // Save message to database if successful
+    let savedData = null;
     if (result.success && result.message_id) {
       try {
-        await persistOutgoingMessage(to, {
+        savedData = await persistOutgoingMessage(to, {
           whatsapp_message_id: result.message_id,
           message_type: 'text',
           content: text,
@@ -78,7 +79,11 @@ class WhatsAppService {
       }
     }
     
-    return result;
+    return {
+      ...result,
+      savedMessage: savedData?.savedMessage,
+      conversation: savedData?.conversation
+    };
   }
 
   /**

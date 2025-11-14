@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Sidebar from './WhatsApp/Sidebar';
 import ChatList from './WhatsApp/ChatList';
@@ -11,6 +12,7 @@ import Notifications from './WhatsApp/Notifications';
 
 const WhatsAppLayout = ({ children, selectedConversation, onSelectConversation }) => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [activeView, setActiveView] = useState('chats'); // chats, calls, status, settings, users, statistics
 
   const renderMainContent = () => {
@@ -24,7 +26,7 @@ const WhatsAppLayout = ({ children, selectedConversation, onSelectConversation }
 
     if (activeView === 'templates') {
       // Redirect to templates page instead of showing component
-      window.location.href = '/templates';
+      navigate('/templates');
       return null;
     }
 
