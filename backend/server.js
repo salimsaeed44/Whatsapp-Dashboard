@@ -6,9 +6,14 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const http = require('http');
+const path = require('path');
+const fs = require('fs');
 const { testConnection } = require('./config/database');
+const { initSocket } = require('./services/socket.service');
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
 // CORS Configuration - Support multiple origins for production
@@ -28,6 +33,9 @@ if (process.env.NODE_ENV !== 'production') {
     allowedOrigins.push('http://localhost:5173');
   }
 }
+
+const shouldServeFrontend = (process.env.SERVE_FRONTEND || '').toLowerCase() === 'true';
+const frontendBuildPath = process.env.FRONTEND_BUILD_PATH || path.join(__dirname, '..', 'frontend', 'dist');
 
 // Middleware
 app.use(cors({
@@ -51,6 +59,7 @@ app.use(cors({
 console.log('🌐 CORS Configuration:');
 console.log('   Allowed Origins:', allowedOrigins.length > 0 ? allowedOrigins.join(', ') : 'All origins');
 console.log('   Environment:', process.env.NODE_ENV || 'development');
+console.log('   SPA Fallback:', shouldServeFrontend ? `enabled (${frontendBuildPath})` : 'disabled');
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -63,26 +72,59 @@ app.get('/health', (req, res) => {
   });
 });
 
-// WhatsApp Webhook endpoint (must be before body parsing for webhook verification)
-// Note: Webhook routes are defined in /api/whatsapp/webhook, but we keep this for direct access
-const whatsappService = require('./services/whatsapp/whatsapp.service');
-
 // API Routes
 const apiRoutes = require('./routes');
 app.use('/api', apiRoutes);
 
-// Root endpoint
-app.get('/', (req, res) => {
-  res.json({
-    message: 'WhatsApp Dashboard Backend API',
-    version: '1.0.0',
-    endpoints: {
-      health: '/health',
-      apiHealth: '/api/health',
-      api: '/api'
-    }
+// Root endpoint (only when frontend is not being served from this server)
+if (!shouldServeFrontend) {
+  app.get('/', (req, res) => {
+    res.json({
+      message: 'WhatsApp Dashboard Backend API',
+      version: '1.0.0',
+      endpoints: {
+        health: '/health',
+        apiHealth: '/api/health',
+        api: '/api'
+      }
+    });
   });
-});
+}
+
+const configureSpaFallback = () => {
+  if (!shouldServeFrontend) {
+    return;
+  }
+
+  if (!fs.existsSync(frontendBuildPath)) {
+    console.warn('⚠️ SERVE_FRONTEND=true but build directory not found:', frontendBuildPath);
+    console.warn('   Run `npm run build` inside frontend/ or set FRONTEND_BUILD_PATH to a valid directory.');
+    return;
+  }
+
+  app.use(express.static(frontendBuildPath));
+
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/health')) {
+      return next();
+    }
+
+    if (req.method !== 'GET') {
+      return next();
+    }
+
+    // Let asset requests fall through to static middleware/404
+    if (req.path.includes('.') && !req.path.endsWith('.html')) {
+      return next();
+    }
+
+    res.sendFile(path.join(frontendBuildPath, 'index.html'));
+  });
+
+  console.log('🧱 SPA fallback is enabled. Serving frontend from:', frontendBuildPath);
+};
+
+configureSpaFallback();
 
 // 404 handler
 app.use((req, res) => {
@@ -111,7 +153,9 @@ const startServer = async () => {
     }
   }
 
-  app.listen(PORT, () => {
+  initSocket(server, { allowedOrigins });
+
+  server.listen(PORT, () => {
     console.log(`🚀 Server is running on port ${PORT}`);
     console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🔗 Health check: http://localhost:${PORT}/health`);
@@ -123,6 +167,9 @@ startServer().catch((error) => {
   process.exit(1);
 });
 
-module.exports = app;
+module.exports = {
+  app,
+  server
+};
 
 

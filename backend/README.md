@@ -13,6 +13,7 @@ Backend API for WhatsApp Business Cloud API Dashboard management platform.
 - **PostgreSQL**: 15
 - **JWT**: Authentication
 - **pg**: PostgreSQL client
+- **Socket.io**: 4.x for realtime updates
 
 ## الهيكل / Structure
 
@@ -117,6 +118,43 @@ psql -U postgres -d whatsapp_db -f migrations/002_create_messages_table.sql
 - **user**: Access to own resources only
 
 See `middleware/README.md` for more details.
+
+## Realtime Events (Socket.io)
+
+- `socket:connected` - Fired on successful socket handshake
+- `message:new` - Broadcast when a new message (incoming/outgoing) is persisted
+- `message:status` - Broadcast when a message status changes (sent/delivered/read/failed)
+- `conversations:update` - Broadcast when a conversation assignment/status/metadata changes
+- `presence:update` - Broadcast with the current roster of online agents
+
+### Server Setup
+
+Socket.io is initialised from `server.js`. The server inherits the same CORS allow-list as the REST API. When starting the backend, the Socket.io server automatically listens on the same port.
+
+### Client Connection Example
+
+```javascript
+import { io } from 'socket.io-client';
+
+const socket = io('https://your-backend-host', {
+  auth: { token: '<JWT access token>' }
+});
+
+socket.on('message:new', (payload) => {
+  console.log('New message', payload.message);
+});
+```
+
+## Serving the Frontend / SPA Routing
+
+Set the following environment variables if you want Express to serve the built React frontend (and fix deep-link refresh issues such as `/login` returning 404):
+
+| Variable | Description |
+| --- | --- |
+| `SERVE_FRONTEND=true` | Enables SPA fallback routing inside the backend server |
+| `FRONTEND_BUILD_PATH` | Optional path to the frontend `dist` folder (defaults to `../frontend/dist`) |
+
+When enabled, any non-API GET request will fall back to `index.html`, matching the behaviour of Render Static Sites and ensuring direct navigation to nested routes works without manual refreshes.
 
 ## حالة المشروع / Project Status
 

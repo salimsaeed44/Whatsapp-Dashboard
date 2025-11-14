@@ -7,6 +7,7 @@ const Message = require('../models/message.model');
 const Conversation = require('../models/conversation.model');
 const whatsappService = require('../services/whatsapp/whatsapp.service');
 const messageRetryService = require('../services/message-retry.service');
+const { emitMessageStatusUpdated } = require('../services/socket.service');
 
 /**
  * Get all messages
@@ -227,7 +228,9 @@ const updateMessageStatus = async (req, res) => {
     }
 
     const statusTimestamp = timestamp ? new Date(timestamp) : null;
-    await Message.updateMessageStatus(id, status, statusTimestamp);
+    const updatedMessage = await Message.updateMessageStatus(id, status, statusTimestamp);
+
+    emitMessageStatusUpdated(updatedMessage);
 
     res.status(200).json({
       message: 'Message status updated successfully'

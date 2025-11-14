@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { socketService } from './socket.service';
 
 // API Base URL - Use environment variable or default to Render backend URL
 // Production: https://whatsapp-dashboard-encw.onrender.com/api
@@ -68,6 +69,7 @@ api.interceptors.response.use(
 
           const { accessToken } = response.data;
           localStorage.setItem('accessToken', accessToken);
+          socketService.refreshAuth();
 
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
           return api(originalRequest);
@@ -76,6 +78,7 @@ api.interceptors.response.use(
         // Refresh failed, logout user
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
+        socketService.disconnect();
         // Only redirect if not already on login page
         if (window.location.pathname !== '/login') {
           window.location.href = '/login';

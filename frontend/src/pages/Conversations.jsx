@@ -1,6 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { conversationsService } from '../services/conversations.service';
 import Layout from '../components/Layout';
+import { socketService } from '../services/socket.service';
+
+const sortByActivity = (items = []) => {
+  return [...items].sort((a, b) => {
+    const aDate = new Date(a.last_message_at || a.updated_at || a.created_at || 0);
+    const bDate = new Date(b.last_message_at || b.updated_at || b.created_at || 0);
+    return bDate - aDate;
+  });
+};
 
 const Conversations = () => {
   const [conversations, setConversations] = useState([]);
@@ -14,7 +23,7 @@ const Conversations = () => {
   const loadConversations = async () => {
     try {
       const response = await conversationsService.getAll({ limit: 50, offset: 0 });
-      setConversations(response.data);
+      setConversations(sortByActivity(response.data));
       setPagination(response.pagination);
     } catch (error) {
       console.error('Error loading conversations:', error);
@@ -22,6 +31,45 @@ const Conversations = () => {
       setLoading(false);
     }
   };
+
+  const mergeConversation = useCallback((incoming) => {
+    if (!incoming?.id) return;
+    setConversations((prev) => {
+      const existingIndex = prev.findIndex((conversation) => conversation.id === incoming.id);
+      let nextConversations;
+
+      if (existingIndex === -1) {
+        nextConversations = [incoming, ...prev];
+      } else {
+        nextConversations = [...prev];
+        nextConversations[existingIndex] = {
+          ...nextConversations[existingIndex],
+          ...incoming
+        };
+      }
+
+      return sortByActivity(nextConversations);
+    });
+  }, []);
+
+  useEffect(() => {
+    const unsubscribeConversations = socketService.on('conversations:update', ({ conversation }) => {
+      if (conversation) {
+        mergeConversation(conversation);
+      }
+    });
+
+    const unsubscribeMessages = socketService.on('message:new', ({ conversation }) => {
+      if (conversation) {
+        mergeConversation(conversation);
+      }
+    });
+
+    return () => {
+      unsubscribeConversations();
+      unsubscribeMessages();
+    };
+  }, [mergeConversation]);
 
   if (loading) {
     return (

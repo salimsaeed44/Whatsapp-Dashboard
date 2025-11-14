@@ -8,6 +8,7 @@ const Message = require('../models/message.model');
 const distributionService = require('../services/distribution.service');
 const whatsappService = require('../services/whatsapp/whatsapp.service');
 const notificationService = require('../services/notification.service');
+const { emitConversationUpdated } = require('../services/socket.service');
 
 /**
  * Get all conversations
@@ -230,6 +231,7 @@ const updateConversation = async (req, res) => {
 
     // Update conversation
     const updatedConversation = await Conversation.updateConversation(id, updateData);
+    emitConversationUpdated(updatedConversation);
 
     res.status(200).json({
       message: 'Conversation updated successfully',
@@ -294,6 +296,7 @@ const assignConversation = async (req, res) => {
       assigned_to,
       status: 'assigned'
     });
+    emitConversationUpdated(updatedConversation);
 
     // Send notification to assigned user
     try {
@@ -358,6 +361,7 @@ const closeConversation = async (req, res) => {
       status: 'closed',
       closed_at: new Date()
     });
+    emitConversationUpdated(updatedConversation);
 
     res.status(200).json({
       message: 'Conversation closed successfully',
@@ -622,7 +626,8 @@ const transferConversation = async (req, res) => {
     });
 
     // Reset unread count for new assignee
-    await Conversation.resetUnreadCount(id);
+    const conversationAfterReset = await Conversation.resetUnreadCount(id);
+    emitConversationUpdated(conversationAfterReset);
 
     // Send notification for transfer
     try {

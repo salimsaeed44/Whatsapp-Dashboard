@@ -8,6 +8,10 @@ const Conversation = require('../../models/conversation.model');
 const automationService = require('../automation.service');
 const distributionService = require('../distribution.service');
 const notificationService = require('../notification.service');
+const {
+  emitMessageCreated,
+  emitMessageStatusUpdated
+} = require('../socket.service');
 
 /**
  * Verify webhook from Meta
@@ -229,17 +233,7 @@ const handleIncomingMessage = async (message, value) => {
 
     // Get or create conversation for this phone number
     const conversation = await Conversation.getOrCreateConversation(message.from);
-
-    // Update conversation's last message
-    await Conversation.updateConversation(conversation.id, {
-      last_message_at: whatsappTimestamp || new Date(),
-      status: conversation.status === 'closed' ? 'open' : conversation.status // Reopen if closed
-    });
-
-    // Increment unread count if conversation is assigned
-    if (conversation.assigned_to) {
-      await Conversation.incrementUnreadCount(conversation.id);
-    }
+    const reopenedStatus = conversation.status === 'closed' ? 'open' : conversation.status;
 
     // Save message to database
     const savedMessage = await Message.createMessage({
@@ -256,13 +250,21 @@ const handleIncomingMessage = async (message, value) => {
       raw_payload: value
     });
 
-    // Update conversation's last_message_id
-    await Conversation.updateConversation(conversation.id, {
+    const baseConversation = await Conversation.updateConversation(conversation.id, {
+      status: reopenedStatus,
+      last_message_at: whatsappTimestamp || new Date(),
       last_message_id: savedMessage.id
     });
 
+    let realtimeConversation = baseConversation;
+
+    // Increment unread count if conversation is assigned
+    if (baseConversation.assigned_to) {
+      realtimeConversation = await Conversation.incrementUnreadCount(conversation.id);
+    }
+
     // Auto-assign conversation if not assigned
-    if (!conversation.assigned_to && conversation.status === 'open') {
+    if (!baseConversation.assigned_to && baseConversation.status === 'open') {
       try {
         // Use round robin distribution by default
         const assignmentResult = await distributionService.autoAssign(conversation.id, 'round_robin');
@@ -285,7 +287,7 @@ const handleIncomingMessage = async (message, value) => {
     console.log('✅ Conversation updated:', conversation.id);
 
     // Send notification for new message if conversation is assigned
-    if (conversation.assigned_to) {
+    if (baseConversation.assigned_to) {
       try {
         await notificationService.notifyNewMessage(conversation.id, savedMessage.id);
       } catch (error) {
@@ -313,8 +315,7 @@ const handleIncomingMessage = async (message, value) => {
       }
     }
 
-    // TODO: Trigger bot response
-    // await triggerBotResponse(savedMessage);
+    emitMessageCreated(savedMessage, realtimeConversation);
 
   } catch (error) {
     console.error('❌ Error handling incoming message:', error);
@@ -354,7 +355,8 @@ const handleMessageStatus = async (status) => {
 
     // Update message status
     const timestamp = status.timestamp ? new Date(parseInt(status.timestamp) * 1000) : null;
-    await Message.updateMessageStatus(message.id, mappedStatus, timestamp);
+    const updatedMessage = await Message.updateMessageStatus(message.id, mappedStatus, timestamp);
+    emitMessageStatusUpdated(updatedMessage);
 
     // Update metadata with status information
     if (status.errors) {

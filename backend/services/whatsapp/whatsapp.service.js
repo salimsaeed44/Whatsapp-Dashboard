@@ -8,6 +8,10 @@ const webhookHandler = require('./webhook.handler');
 const messageSender = require('./message.sender');
 const Message = require('../../models/message.model');
 const Conversation = require('../../models/conversation.model');
+const {
+  emitMessageCreated,
+  emitMessageStatusUpdated
+} = require('../socket.service');
 
 /**
  * WhatsApp Service Class
@@ -59,32 +63,15 @@ class WhatsAppService {
     // Save message to database if successful
     if (result.success && result.message_id) {
       try {
-        // Get or create conversation
-        let conversationId = options.conversation_id;
-        if (!conversationId) {
-          const conversation = await Conversation.getOrCreateConversation(to);
-          conversationId = conversation.id;
-        }
-
-        const savedMessage = await Message.createMessage({
+        await persistOutgoingMessage(to, {
           whatsapp_message_id: result.message_id,
-          phone_number: to,
           message_type: 'text',
           content: text,
           direction: 'outgoing',
           status: 'sent',
           source: 'meta',
-          user_id: options.user_id || null,
-          conversation_id: conversationId,
-          metadata: options.metadata || {},
           raw_payload: result
-        });
-
-        // Update conversation's last message
-        await Conversation.updateConversation(conversationId, {
-          last_message_at: new Date(),
-          last_message_id: savedMessage.id
-        });
+        }, options);
       } catch (error) {
         console.error('Error saving message to database:', error);
         // Don't throw error, message was sent successfully
@@ -109,35 +96,18 @@ class WhatsAppService {
     // Save message to database if successful
     if (result.success && result.message_id) {
       try {
-        // Get or create conversation
-        let conversationId = options.conversation_id;
-        if (!conversationId) {
-          const conversation = await Conversation.getOrCreateConversation(to);
-          conversationId = conversation.id;
-        }
-
-        const savedMessage = await Message.createMessage({
+        await persistOutgoingMessage(to, {
           whatsapp_message_id: result.message_id,
-          phone_number: to,
           message_type: 'image',
           content: caption || '[Image]',
           direction: 'outgoing',
           status: 'sent',
           source: 'meta',
-          user_id: options.user_id || null,
-          conversation_id: conversationId,
           metadata: {
-            ...options.metadata,
             image_url: imageUrl
           },
           raw_payload: result
-        });
-
-        // Update conversation's last message
-        await Conversation.updateConversation(conversationId, {
-          last_message_at: new Date(),
-          last_message_id: savedMessage.id
-        });
+        }, options);
       } catch (error) {
         console.error('Error saving message to database:', error);
       }
@@ -162,36 +132,19 @@ class WhatsAppService {
     // Save message to database if successful
     if (result.success && result.message_id) {
       try {
-        // Get or create conversation
-        let conversationId = options.conversation_id;
-        if (!conversationId) {
-          const conversation = await Conversation.getOrCreateConversation(to);
-          conversationId = conversation.id;
-        }
-
-        const savedMessage = await Message.createMessage({
+        await persistOutgoingMessage(to, {
           whatsapp_message_id: result.message_id,
-          phone_number: to,
           message_type: 'document',
           content: caption || filename || '[Document]',
           direction: 'outgoing',
           status: 'sent',
           source: 'meta',
-          user_id: options.user_id || null,
-          conversation_id: conversationId,
           metadata: {
-            ...options.metadata,
             document_url: documentUrl,
-            filename: filename
+            filename
           },
           raw_payload: result
-        });
-
-        // Update conversation's last message
-        await Conversation.updateConversation(conversationId, {
-          last_message_at: new Date(),
-          last_message_id: savedMessage.id
-        });
+        }, options);
       } catch (error) {
         console.error('Error saving message to database:', error);
       }
@@ -217,38 +170,21 @@ class WhatsAppService {
     // Save message to database if successful
     if (result.success && result.message_id) {
       try {
-        // Get or create conversation
-        let conversationId = options.conversation_id;
-        if (!conversationId) {
-          const conversation = await Conversation.getOrCreateConversation(to);
-          conversationId = conversation.id;
-        }
-
-        const savedMessage = await Message.createMessage({
+        await persistOutgoingMessage(to, {
           whatsapp_message_id: result.message_id,
-          phone_number: to,
           message_type: 'location',
           content: `Lat: ${latitude}, Long: ${longitude}`,
           direction: 'outgoing',
           status: 'sent',
           source: 'meta',
-          user_id: options.user_id || null,
-          conversation_id: conversationId,
           metadata: {
-            ...options.metadata,
-            latitude: latitude,
-            longitude: longitude,
-            name: name,
-            address: address
+            latitude,
+            longitude,
+            name,
+            address
           },
           raw_payload: result
-        });
-
-        // Update conversation's last message
-        await Conversation.updateConversation(conversationId, {
-          last_message_at: new Date(),
-          last_message_id: savedMessage.id
-        });
+        }, options);
       } catch (error) {
         console.error('Error saving message to database:', error);
       }
@@ -271,7 +207,8 @@ class WhatsAppService {
       try {
         const message = await Message.findMessageByWhatsAppId(messageId);
         if (message) {
-          await Message.updateMessageStatus(message.id, 'read', new Date());
+          const updatedMessage = await Message.updateMessageStatus(message.id, 'read', new Date());
+          emitMessageStatusUpdated(updatedMessage);
         }
       } catch (error) {
         console.error('Error updating message status in database:', error);
@@ -342,6 +279,51 @@ class WhatsAppService {
     };
   }
 }
+
+/**
+ * Persist outgoing message to database and emit realtime updates
+ * @param {string} phoneNumber
+ * @param {Object} payload
+ * @param {Object} options
+ */
+const persistOutgoingMessage = async (phoneNumber, payload, options = {}) => {
+  let conversationId = options.conversation_id;
+  let conversation = null;
+
+  if (conversationId) {
+    conversation = await Conversation.findConversationById(conversationId);
+  }
+
+  if (!conversation) {
+    conversation = await Conversation.getOrCreateConversation(phoneNumber);
+    conversationId = conversation.id;
+  }
+
+  const messageData = {
+    ...payload,
+    phone_number: phoneNumber,
+    conversation_id: conversationId,
+    user_id: options.user_id || null,
+    metadata: {
+      ...(options.metadata || {}),
+      ...(payload.metadata || {})
+    }
+  };
+
+  const savedMessage = await Message.createMessage(messageData);
+
+  const updatedConversation = await Conversation.updateConversation(conversationId, {
+    last_message_at: new Date(),
+    last_message_id: savedMessage.id
+  });
+
+  emitMessageCreated(savedMessage, updatedConversation);
+
+  return {
+    savedMessage,
+    conversation: updatedConversation
+  };
+};
 
 // Export singleton instance
 const whatsappService = new WhatsAppService();

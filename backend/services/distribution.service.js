@@ -7,6 +7,7 @@ const Conversation = require('../models/conversation.model');
 const User = require('../models/user.model');
 const { query } = require('../config/database');
 const notificationService = require('./notification.service');
+const { emitConversationUpdated } = require('./socket.service');
 
 /**
  * Distribution Service Class
@@ -71,6 +72,8 @@ class DistributionService {
         status: 'assigned',
         assigned_at: new Date()
       });
+
+      emitConversationUpdated(conversation);
 
       // Send notification to assigned user
       try {
@@ -174,6 +177,8 @@ class DistributionService {
         status: 'assigned',
         assigned_at: new Date()
       });
+
+      emitConversationUpdated(conversation);
 
       // Send notification to assigned user
       try {
