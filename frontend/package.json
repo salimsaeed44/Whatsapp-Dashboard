@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node -e \"const fs=require('fs');const path=require('path');const dist=path.join(__dirname,'dist');const index=path.join(dist,'index.html');const notFound=path.join(dist,'404.html');if(fs.existsSync(index))fs.copyFileSync(index,notFound);\"",
     "preview": "vite preview"
   },
   "dependencies": {

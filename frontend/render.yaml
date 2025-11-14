@@ -1,5 +1,6 @@
 # Render Static Site Configuration
 # This file configures routing for React Router on Render
+# NOTE: If this doesn't work, configure routes directly in Render Dashboard
 
 services:
   - type: web
@@ -11,4 +12,10 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
-        force: true
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
