@@ -338,6 +338,32 @@ const deleteTemplate = async (req, res) => {
 };
 
 /**
+ * Convert Meta template status to local database status
+ * @param {string} metaStatus - Status from Meta API
+ * @returns {string} Local database status
+ */
+const convertMetaStatusToLocalStatus = (metaStatus) => {
+  if (!metaStatus) {
+    return 'pending_approval';
+  }
+
+  const statusMap = {
+    'APPROVED': 'active',
+    'PENDING': 'pending_approval',
+    'REJECTED': 'inactive',
+    'PAUSED': 'inactive',
+    'DISABLED': 'inactive',
+    'approved': 'active',
+    'pending': 'pending_approval',
+    'rejected': 'inactive',
+    'paused': 'inactive',
+    'disabled': 'inactive'
+  };
+
+  return statusMap[metaStatus] || 'pending_approval';
+};
+
+/**
  * Sync templates from Meta
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
@@ -358,14 +384,24 @@ const syncTemplatesFromMeta = async (req, res) => {
       // Check if template exists locally
       let localTemplate = await Template.findTemplateByWhatsAppId(metaTemplate.id);
       
+      // Convert Meta status to local status
+      const localStatus = convertMetaStatusToLocalStatus(metaTemplate.status);
+      
+      // Extract body content from components
+      const bodyComponent = metaTemplate.components?.find(c => c.type === 'BODY');
+      const content = bodyComponent?.text || '';
+      
+      // Extract category (Meta uses uppercase, we store lowercase)
+      const category = metaTemplate.category?.toUpperCase() || 'UTILITY';
+      
       if (!localTemplate) {
         // Create new template in local database
         localTemplate = await Template.createTemplate({
           name: metaTemplate.name,
-          content: metaTemplate.components?.find(c => c.type === 'BODY')?.text || '',
-          category: metaTemplate.category?.toLowerCase() || 'utility',
+          content: content,
+          category: category,
           language: metaTemplate.language || 'ar',
-          status: metaTemplate.status?.toLowerCase() || 'pending_approval',
+          status: localStatus,
           whatsapp_template_id: metaTemplate.id,
           variables: [],
           metadata: {
@@ -376,7 +412,9 @@ const syncTemplatesFromMeta = async (req, res) => {
       } else {
         // Update existing template
         localTemplate = await Template.updateTemplate(localTemplate.id, {
-          status: metaTemplate.status?.toLowerCase() || localTemplate.status,
+          status: localStatus,
+          content: content,
+          category: category,
           metadata: {
             ...localTemplate.metadata,
             meta_template: metaTemplate,
