@@ -302,17 +302,45 @@ const CreateTemplatePage = () => {
                   <label className="block text-sm font-medium text-whatsapp-text-secondary mb-2">
                     الرأس (اختياري)
                   </label>
-                  <input
-                    type="text"
-                    value={formData.headerText}
-                    onChange={(e) => setFormData({ ...formData, headerText: e.target.value })}
-                    maxLength={60}
-                    className="w-full bg-whatsapp-input-bg text-whatsapp-text-primary rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-whatsapp-green"
-                    placeholder="مثال: عرض خاص!"
-                  />
-                  <p className="text-xs text-whatsapp-text-tertiary mt-1">
-                    نص فقط. 60 حرفًا كحد أقصى
-                  </p>
+                  <div className="flex gap-2 mb-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="headerType"
+                        value="NONE"
+                        checked={formData.headerType === 'NONE'}
+                        onChange={(e) => setFormData({ ...formData, headerType: e.target.value, headerText: '' })}
+                        className="w-4 h-4 text-whatsapp-green"
+                      />
+                      <span className="text-sm text-whatsapp-text-secondary">بدون رأس</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="headerType"
+                        value="TEXT"
+                        checked={formData.headerType === 'TEXT'}
+                        onChange={(e) => setFormData({ ...formData, headerType: e.target.value })}
+                        className="w-4 h-4 text-whatsapp-green"
+                      />
+                      <span className="text-sm text-whatsapp-text-secondary">نص</span>
+                    </label>
+                  </div>
+                  {formData.headerType === 'TEXT' && (
+                    <>
+                      <input
+                        type="text"
+                        value={formData.headerText}
+                        onChange={(e) => setFormData({ ...formData, headerText: e.target.value })}
+                        maxLength={60}
+                        className="w-full bg-whatsapp-input-bg text-whatsapp-text-primary rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-whatsapp-green"
+                        placeholder="مثال: عرض خاص!"
+                      />
+                      <p className="text-xs text-whatsapp-text-tertiary mt-1">
+                        نص فقط. 60 حرفًا كحد أقصى
+                      </p>
+                    </>
+                  )}
                 </div>
 
                 {/* Body */}
