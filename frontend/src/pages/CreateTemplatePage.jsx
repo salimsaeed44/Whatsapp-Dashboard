@@ -397,7 +397,7 @@ const CreateTemplatePage = () => {
                   />
                   <div className="flex items-center justify-between mt-1">
                     <p className="text-xs text-whatsapp-text-tertiary">
-                      استخدم {{1}} {{2}}... للمتغيرات.
+                      استخدم {'{{1}}'} {'{{2}}'}... للمتغيرات.
                     </p>
                     <p className="text-xs text-whatsapp-text-tertiary">
                       {formData.body.length} / 1024
