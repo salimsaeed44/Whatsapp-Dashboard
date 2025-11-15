@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Sidebar from './WhatsApp/Sidebar';
 import ChatList from './WhatsApp/ChatList';
@@ -13,7 +13,37 @@ import Notifications from './WhatsApp/Notifications';
 const WhatsAppLayout = ({ children, selectedConversation, onSelectConversation }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeView, setActiveView] = useState('chats'); // chats, calls, status, settings, users, statistics
+
+  // Map view IDs to routes
+  const viewToRoute = {
+    'chats': '/chats',
+    'templates': '/templates',
+    'broadcasts': '/broadcasts',
+    'statistics': '/statistics',
+    'users': '/users',
+    'notifications': '/notifications',
+    'contacts': '/contacts',
+    'automations': '/automations'
+  };
+
+  // Update URL when view changes
+  const handleViewChange = (viewId) => {
+    setActiveView(viewId);
+    const route = viewToRoute[viewId];
+    if (route && location.pathname !== route) {
+      navigate(route, { replace: true });
+    }
+  };
+
+  // Sync activeView with current route
+  useEffect(() => {
+    const routeToView = Object.entries(viewToRoute).find(([_, route]) => route === location.pathname);
+    if (routeToView) {
+      setActiveView(routeToView[0]);
+    }
+  }, [location.pathname]);
 
   const renderMainContent = () => {
     if (activeView === 'users') {
@@ -25,8 +55,8 @@ const WhatsAppLayout = ({ children, selectedConversation, onSelectConversation }
     }
 
     if (activeView === 'templates') {
-      // Redirect to templates page instead of showing component
-      navigate('/templates');
+      // Templates view is handled by route, so we don't render here
+      // The route will handle it
       return null;
     }
 
@@ -71,7 +101,7 @@ const WhatsAppLayout = ({ children, selectedConversation, onSelectConversation }
       {/* Sidebar - Left Column */}
       <Sidebar 
         activeView={activeView} 
-        onViewChange={setActiveView}
+        onViewChange={handleViewChange}
         user={user}
       />
 

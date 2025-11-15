@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { messagesService } from '../../services/messages.service';
 import { useAuth } from '../../context/AuthContext';
+import { socketService } from '../../services/socket.service';
 import TransferModal from './TransferModal';
 import MessageStatus from './MessageStatus';
 
@@ -16,9 +17,18 @@ const ChatWindow = ({ conversation, user }) => {
   useEffect(() => {
     if (conversation) {
       loadMessages();
+      // Join conversation room for realtime updates
+      socketService.joinConversation(conversation.id, conversation.phone_number);
     } else {
       setMessages([]);
     }
+
+    return () => {
+      if (conversation) {
+        // Leave conversation room when component unmounts or conversation changes
+        socketService.leaveConversation(conversation.id, conversation.phone_number);
+      }
+    };
   }, [conversation]);
 
   // Poll for message status updates (only for outgoing messages that aren't read yet)
@@ -40,6 +50,86 @@ const ChatWindow = ({ conversation, user }) => {
 
     return () => clearInterval(statusInterval);
   }, [conversation, messages]);
+
+  // Socket.io listeners for realtime updates (only for this conversation)
+  useEffect(() => {
+    if (!conversation) return;
+
+    const upsertMessage = (incoming) => {
+      if (!incoming?.id) return;
+      // Only update if message belongs to current conversation
+      if (incoming.conversation_id !== conversation.id && 
+          incoming.phone_number !== conversation.phone_number) {
+        return;
+      }
+      
+      setMessages((prev) => {
+        const existingIndex = prev.findIndex((msg) => msg.id === incoming.id);
+        let nextMessages;
+
+        if (existingIndex === -1) {
+          // New message - add to end
+          nextMessages = [...prev, incoming];
+        } else {
+          // Update existing message
+          nextMessages = [...prev];
+          nextMessages[existingIndex] = {
+            ...nextMessages[existingIndex],
+            ...incoming
+          };
+        }
+
+        // Sort to ensure correct order (oldest to newest)
+        return nextMessages.sort((a, b) => {
+          const dateA = new Date(a.created_at || a.timestamp || 0);
+          const dateB = new Date(b.created_at || b.timestamp || 0);
+          return dateA - dateB;
+        });
+      });
+    };
+
+    const updateMessageStatus = (incoming) => {
+      if (!incoming?.id) return;
+      // Only update if message belongs to current conversation
+      if (incoming.conversation_id !== conversation.id && 
+          incoming.phone_number !== conversation.phone_number) {
+        return;
+      }
+      
+      setMessages((prev) => {
+        const existingIndex = prev.findIndex((msg) => msg.id === incoming.id);
+        if (existingIndex === -1) {
+          return prev;
+        }
+
+        const nextMessages = [...prev];
+        nextMessages[existingIndex] = {
+          ...nextMessages[existingIndex],
+          ...incoming
+        };
+
+        return nextMessages;
+      });
+    };
+
+    // Subscribe to socket events for this conversation only
+    const unsubscribeNewMessage = socketService.on('message:new', ({ message }) => {
+      if (message) {
+        upsertMessage(message);
+      }
+    });
+
+    const unsubscribeStatus = socketService.on('message:status', ({ message }) => {
+      if (message) {
+        updateMessageStatus(message);
+      }
+    });
+
+    return () => {
+      unsubscribeNewMessage();
+      unsubscribeStatus();
+    };
+  }, [conversation]);
 
   useEffect(() => {
     // Scroll to bottom when messages change, but wait a bit for DOM update

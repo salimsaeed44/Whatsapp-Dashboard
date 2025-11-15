@@ -27,6 +27,7 @@ const HomeRoute = () => {
   return <Navigate to="/login" replace />;
 };
 
+
 function App() {
   return (
     <AuthProvider>

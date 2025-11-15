@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { messagesService } from '../services/messages.service';
 import Layout from '../components/Layout';
 import MessageStatus from '../components/WhatsApp/MessageStatus';
-import { socketService } from '../services/socket.service';
 
 const MAX_MESSAGES = 200;
 
@@ -13,6 +12,11 @@ const Messages = () => {
 
   useEffect(() => {
     loadMessages();
+    // Poll for updates every 30 seconds instead of using socket
+    const interval = setInterval(() => {
+      loadMessages();
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const loadMessages = async () => {
@@ -26,63 +30,6 @@ const Messages = () => {
       setLoading(false);
     }
   };
-
-  const upsertMessage = useCallback((incoming) => {
-    if (!incoming?.id) return;
-    setMessages((prev) => {
-      const existingIndex = prev.findIndex((message) => message.id === incoming.id);
-      let nextMessages;
-
-      if (existingIndex === -1) {
-        nextMessages = [incoming, ...prev];
-      } else {
-        nextMessages = [...prev];
-        nextMessages[existingIndex] = {
-          ...nextMessages[existingIndex],
-          ...incoming
-        };
-      }
-
-      return nextMessages.slice(0, MAX_MESSAGES);
-    });
-  }, []);
-
-  const updateMessageStatus = useCallback((incoming) => {
-    if (!incoming?.id) return;
-    setMessages((prev) => {
-      const existingIndex = prev.findIndex((message) => message.id === incoming.id);
-      if (existingIndex === -1) {
-        return prev;
-      }
-
-      const nextMessages = [...prev];
-      nextMessages[existingIndex] = {
-        ...nextMessages[existingIndex],
-        ...incoming
-      };
-
-      return nextMessages;
-    });
-  }, []);
-
-  useEffect(() => {
-    const unsubscribeNewMessage = socketService.on('message:new', ({ message }) => {
-      if (message) {
-        upsertMessage(message);
-      }
-    });
-
-    const unsubscribeStatus = socketService.on('message:status', ({ message }) => {
-      if (message) {
-        updateMessageStatus(message);
-      }
-    });
-
-    return () => {
-      unsubscribeNewMessage();
-      unsubscribeStatus();
-    };
-  }, [upsertMessage, updateMessageStatus]);
 
   if (loading) {
     return (

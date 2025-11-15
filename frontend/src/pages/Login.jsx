@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
@@ -9,6 +9,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -18,7 +19,9 @@ const Login = () => {
     try {
       const result = await login(email, password);
       if (result.success) {
-        navigate('/chats', { replace: true });
+        // Redirect to the page user was trying to access, or default to /chats
+        const from = location.state?.from?.pathname || '/chats';
+        navigate(from, { replace: true });
       } else {
         setError(result.error || 'فشل تسجيل الدخول');
       }

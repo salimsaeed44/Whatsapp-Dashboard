@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { conversationsService } from '../services/conversations.service';
 import Layout from '../components/Layout';
-import { socketService } from '../services/socket.service';
 
 const sortByActivity = (items = []) => {
   return [...items].sort((a, b) => {
@@ -18,6 +17,11 @@ const Conversations = () => {
 
   useEffect(() => {
     loadConversations();
+    // Poll for updates every 30 seconds instead of using socket
+    const interval = setInterval(() => {
+      loadConversations();
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const loadConversations = async () => {
@@ -31,45 +35,6 @@ const Conversations = () => {
       setLoading(false);
     }
   };
-
-  const mergeConversation = useCallback((incoming) => {
-    if (!incoming?.id) return;
-    setConversations((prev) => {
-      const existingIndex = prev.findIndex((conversation) => conversation.id === incoming.id);
-      let nextConversations;
-
-      if (existingIndex === -1) {
-        nextConversations = [incoming, ...prev];
-      } else {
-        nextConversations = [...prev];
-        nextConversations[existingIndex] = {
-          ...nextConversations[existingIndex],
-          ...incoming
-        };
-      }
-
-      return sortByActivity(nextConversations);
-    });
-  }, []);
-
-  useEffect(() => {
-    const unsubscribeConversations = socketService.on('conversations:update', ({ conversation }) => {
-      if (conversation) {
-        mergeConversation(conversation);
-      }
-    });
-
-    const unsubscribeMessages = socketService.on('message:new', ({ conversation }) => {
-      if (conversation) {
-        mergeConversation(conversation);
-      }
-    });
-
-    return () => {
-      unsubscribeConversations();
-      unsubscribeMessages();
-    };
-  }, [mergeConversation]);
 
   if (loading) {
     return (
