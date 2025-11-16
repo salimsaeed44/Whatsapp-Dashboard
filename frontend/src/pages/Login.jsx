@@ -27,7 +27,14 @@ const Login = () => {
       }
     } catch (err) {
       console.error('Login form error:', err);
-      setError(err.message || 'حدث خطأ أثناء تسجيل الدخول');
+      // Better error message handling
+      let errorMessage = 'حدث خطأ أثناء تسجيل الدخول';
+      if (err.message) {
+        errorMessage = err.message;
+      } else if (err.error) {
+        errorMessage = err.error;
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

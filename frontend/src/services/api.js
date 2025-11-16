@@ -16,7 +16,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000, // 30 seconds timeout
+  timeout: 15000, // 15 seconds timeout (reduced from 30s for faster error feedback)
 });
 
 // Request interceptor to add token
@@ -43,14 +43,21 @@ api.interceptors.response.use(
     if (!error.response) {
       console.error('🚫 Network Error:', error.message);
       console.error('🔗 API URL:', API_URL);
+      console.error('🌐 Error Code:', error.code);
       
       // Check if it's a timeout
-      if (error.code === 'ECONNABORTED') {
-        error.message = 'Request timeout. Please check your internet connection.';
-      } else if (error.code === 'ERR_NETWORK') {
-        error.message = `Cannot connect to server. Please check if the backend is running at ${API_URL}`;
+      if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+        error.message = 'Connection timeout. Please check your internet connection and try again.';
+        error.userMessage = 'Connection timeout. Please check your internet connection.';
+      } else if (error.code === 'ERR_NETWORK' || error.message.includes('Network Error')) {
+        error.message = `Cannot connect to server at ${API_URL}. Please check if the backend is running.`;
+        error.userMessage = 'Cannot connect to server. Please check your internet connection.';
+      } else if (error.code === 'ERR_CONNECTION_REFUSED') {
+        error.message = `Connection refused. The backend server may be down. Please try again later.`;
+        error.userMessage = 'Connection timeout. Please check your internet connection.';
       } else {
-        error.message = `Network error: ${error.message}. Please check your connection and backend URL.`;
+        error.message = `Network error: ${error.message}. Please check your connection.`;
+        error.userMessage = 'Connection timeout. Please check your internet connection.';
       }
       
       return Promise.reject(error);

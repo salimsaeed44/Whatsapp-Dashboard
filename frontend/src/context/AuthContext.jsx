@@ -76,13 +76,20 @@ export const AuthProvider = ({ children }) => {
       
       // Check if it's a network error
       if (!error.response) {
-        if (error.message.includes('timeout')) {
+        if (error.userMessage) {
+          errorMessage = error.userMessage;
+        } else if (error.message.includes('timeout') || error.code === 'ECONNABORTED') {
           errorMessage = 'Connection timeout. Please check your internet connection.';
-        } else if (error.message.includes('Cannot connect')) {
-          errorMessage = 'Cannot connect to server. Please check if the backend is running.';
+        } else if (error.message.includes('Cannot connect') || error.code === 'ERR_NETWORK') {
+          errorMessage = 'Cannot connect to server. Please check your internet connection.';
+        } else if (error.code === 'ERR_CONNECTION_REFUSED') {
+          errorMessage = 'Connection timeout. Please check your internet connection.';
         } else {
-          errorMessage = `Network error: ${error.message}. Please check your connection.`;
+          errorMessage = 'Connection timeout. Please check your internet connection.';
         }
+      } else if (error.response?.status === 401) {
+        // Invalid credentials
+        errorMessage = error.response?.data?.message || 'Invalid email or password. Please check your credentials.';
       }
       
       return {

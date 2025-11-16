@@ -157,7 +157,7 @@ const login = async (req, res) => {
     if (!user) {
       return res.status(401).json({ 
         error: 'Authentication failed',
-        message: 'Invalid credentials' 
+        message: 'Invalid email or password. Please check your credentials and try again.' 
       });
     }
 
@@ -174,7 +174,7 @@ const login = async (req, res) => {
     if (!isPasswordValid) {
       return res.status(401).json({ 
         error: 'Authentication failed',
-        message: 'Invalid credentials' 
+        message: 'Invalid email or password. Please check your credentials and try again.' 
       });
     }
 
