@@ -391,7 +391,7 @@ const syncTemplatesFromMeta = async (req, res) => {
       const bodyComponent = metaTemplate.components?.find(c => c.type === 'BODY');
       const content = bodyComponent?.text || '';
       
-      // Extract category (Meta uses uppercase, we store lowercase)
+      // Extract category (Meta uses uppercase: MARKETING, UTILITY, AUTHENTICATION)
       const category = metaTemplate.category?.toUpperCase() || 'UTILITY';
       
       if (!localTemplate) {
