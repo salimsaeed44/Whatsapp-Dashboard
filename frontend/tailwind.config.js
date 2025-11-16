@@ -24,6 +24,11 @@ export default {
           'input-bg': '#2a3942',
           'border': '#313d45',
         },
+        'dashboard': {
+          'green-800': '#065f46',
+          'green-700': '#047857',
+          'green-600': '#059669',
+        },
       },
     },
   },

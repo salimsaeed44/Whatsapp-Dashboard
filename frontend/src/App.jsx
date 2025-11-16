@@ -21,7 +21,7 @@ const HomeRoute = () => {
   }
   
   if (isAuthenticated) {
-    return <Navigate to="/chats" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
   
   return <Navigate to="/login" replace />;
@@ -103,6 +103,39 @@ function App() {
             element={
               <ProtectedRoute>
                 <DeliveryStatsPage />
+              </ProtectedRoute>
+            }
+          />
+          {/* Additional routes for sidebar navigation */}
+          <Route
+            path="/notifications"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/reports"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/users"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
               </ProtectedRoute>
             }
           />
