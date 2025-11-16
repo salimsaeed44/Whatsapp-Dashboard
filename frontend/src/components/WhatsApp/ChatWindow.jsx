@@ -11,6 +11,8 @@ const ChatWindow = ({ conversation, user }) => {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [isOutside24HourWindow, setIsOutside24HourWindow] = useState(false);
+  const [timeUntilWindowExpires, setTimeUntilWindowExpires] = useState(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -31,24 +33,56 @@ const ChatWindow = ({ conversation, user }) => {
     };
   }, [conversation]);
 
-  // Poll for message status updates (only for outgoing messages that aren't read yet)
+  // Check 24-hour window and update time remaining
   useEffect(() => {
-    if (!conversation) return;
+    if (!conversation || !messages.length) {
+      setIsOutside24HourWindow(false);
+      setTimeUntilWindowExpires(null);
+      return;
+    }
 
-    const statusInterval = setInterval(() => {
-      // Check if there are outgoing messages that need status updates
-      const hasOutgoingMessages = messages.some(msg => 
-        (msg.direction === 'outgoing' || msg.direction === 'outbound') && 
-        msg.status !== 'read' && 
-        msg.status !== 'failed'
+    const check24HourWindow = () => {
+      // Find last incoming message from user
+      const incomingMessages = messages.filter(msg => 
+        msg.direction === 'incoming' || msg.direction === 'inbound'
       );
       
-      if (hasOutgoingMessages) {
-        loadMessages();
+      if (incomingMessages.length === 0) {
+        // No incoming messages yet, window is active
+        setIsOutside24HourWindow(false);
+        setTimeUntilWindowExpires(null);
+        return;
       }
-    }, 10000); // Check every 10 seconds
 
-    return () => clearInterval(statusInterval);
+      // Get the most recent incoming message
+      const lastIncomingMessage = incomingMessages.sort((a, b) => {
+        const dateA = new Date(a.created_at || a.timestamp || 0);
+        const dateB = new Date(b.created_at || b.timestamp || 0);
+        return dateB - dateA; // Newest first
+      })[0];
+
+      const lastIncomingTime = new Date(lastIncomingMessage.created_at || lastIncomingMessage.timestamp);
+      const now = new Date();
+      const hoursSinceLastMessage = (now - lastIncomingTime) / (1000 * 60 * 60);
+      const isOutside = hoursSinceLastMessage >= 24;
+
+      setIsOutside24HourWindow(isOutside);
+      
+      if (!isOutside) {
+        // Calculate time until window expires
+        const hoursRemaining = 24 - hoursSinceLastMessage;
+        setTimeUntilWindowExpires(hoursRemaining);
+      } else {
+        setTimeUntilWindowExpires(0);
+      }
+    };
+
+    check24HourWindow();
+
+    // Update every minute
+    const interval = setInterval(check24HourWindow, 60000);
+
+    return () => clearInterval(interval);
   }, [conversation, messages]);
 
   // Socket.io listeners for realtime updates (only for this conversation)
@@ -166,7 +200,7 @@ const ChatWindow = ({ conversation, user }) => {
   };
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || !conversation || sending) return;
+    if (!newMessage.trim() || !conversation || sending || isOutside24HourWindow) return;
 
     try {
       setSending(true);
@@ -178,7 +212,7 @@ const ChatWindow = ({ conversation, user }) => {
       });
 
       // Add message to local state (append to end)
-      const newMsg = response.data || response.message;
+      const newMsg = response.data?.saved_message || response.data || response.message;
       setMessages(prev => {
         // Ensure the new message is added at the end (newest)
         const updated = [...prev, newMsg];
@@ -193,7 +227,8 @@ const ChatWindow = ({ conversation, user }) => {
       inputRef.current?.focus();
     } catch (error) {
       console.error('Error sending message:', error);
-      alert('فشل إرسال الرسالة. يرجى المحاولة مرة أخرى.');
+      const errorMessage = error.response?.data?.message || error.message || 'فشل إرسال الرسالة. يرجى المحاولة مرة أخرى.';
+      alert(errorMessage);
     } finally {
       setSending(false);
     }
@@ -349,41 +384,85 @@ const ChatWindow = ({ conversation, user }) => {
         )}
       </div>
 
+      {/* 24-Hour Window Warning */}
+      {isOutside24HourWindow && (
+        <div className="bg-whatsapp-dark-hover px-4 py-3 border-t border-whatsapp-border">
+          <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-lg px-4 py-3">
+            <p className="text-sm text-yellow-300 text-center">
+              ⏰ هذه المحادثة خارج نافذة 24 ساعة ولا يمكنك بدء المحادثة إلا أن يعيد المستخدم التواصل مع الرقم أو البدء برسالة قالب.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Message Input */}
       <div className="bg-whatsapp-dark-hover px-4 py-3 border-t border-whatsapp-border">
-        <div className="flex items-end gap-2">
-          <button className="p-2 text-whatsapp-text-secondary hover:text-whatsapp-text-primary hover:bg-whatsapp-dark-panel rounded-lg">
-            <span className="text-xl">😊</span>
-          </button>
-          <button className="p-2 text-whatsapp-text-secondary hover:text-whatsapp-text-primary hover:bg-whatsapp-dark-panel rounded-lg">
-            <span className="text-xl">📎</span>
-          </button>
-          <div className="flex-1 bg-whatsapp-input-bg rounded-lg px-4 py-2">
-            <textarea
-              ref={inputRef}
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="اكتب رسالة..."
-              rows={1}
-              className="w-full bg-transparent text-whatsapp-text-primary placeholder-whatsapp-text-tertiary resize-none focus:outline-none text-sm"
-              style={{ maxHeight: '100px' }}
-            />
+        {isOutside24HourWindow ? (
+          <div className="flex items-center justify-center">
+            <div className="bg-whatsapp-input-bg rounded-lg px-4 py-2 flex-1">
+              <input
+                type="text"
+                value="لا يمكنك إرسال رسائل خارج نافذة 24 ساعة"
+                readOnly
+                disabled
+                className="w-full bg-transparent text-whatsapp-text-tertiary text-sm text-center cursor-not-allowed"
+              />
+            </div>
           </div>
-          {newMessage.trim() ? (
-            <button
-              onClick={sendMessage}
-              disabled={sending}
-              className="p-2 text-whatsapp-green hover:bg-whatsapp-dark-panel rounded-lg disabled:opacity-50"
-            >
-              <span className="text-xl">➤</span>
-            </button>
-          ) : (
-            <button className="p-2 text-whatsapp-text-secondary hover:text-whatsapp-text-primary hover:bg-whatsapp-dark-panel rounded-lg">
-              <span className="text-xl">🎤</span>
-            </button>
-          )}
-        </div>
+        ) : (
+          <>
+            <div className="flex items-end gap-2">
+              <button 
+                className="p-2 text-whatsapp-text-secondary hover:text-whatsapp-text-primary hover:bg-whatsapp-dark-panel rounded-lg"
+                disabled={isOutside24HourWindow}
+              >
+                <span className="text-xl">😊</span>
+              </button>
+              <button 
+                className="p-2 text-whatsapp-text-secondary hover:text-whatsapp-text-primary hover:bg-whatsapp-dark-panel rounded-lg"
+                disabled={isOutside24HourWindow}
+              >
+                <span className="text-xl">📎</span>
+              </button>
+              <div className="flex-1 bg-whatsapp-input-bg rounded-lg px-4 py-2">
+                <textarea
+                  ref={inputRef}
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="اكتب رسالة..."
+                  rows={1}
+                  disabled={isOutside24HourWindow}
+                  className="w-full bg-transparent text-whatsapp-text-primary placeholder-whatsapp-text-tertiary resize-none focus:outline-none text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ maxHeight: '100px' }}
+                />
+              </div>
+              {newMessage.trim() ? (
+                <button
+                  onClick={sendMessage}
+                  disabled={sending || isOutside24HourWindow}
+                  className="p-2 text-whatsapp-green hover:bg-whatsapp-dark-panel rounded-lg disabled:opacity-50"
+                >
+                  <span className="text-xl">➤</span>
+                </button>
+              ) : (
+                <button 
+                  className="p-2 text-whatsapp-text-secondary hover:text-whatsapp-text-primary hover:bg-whatsapp-dark-panel rounded-lg"
+                  disabled={isOutside24HourWindow}
+                >
+                  <span className="text-xl">🎤</span>
+                </button>
+              )}
+            </div>
+            {!isOutside24HourWindow && timeUntilWindowExpires !== null && timeUntilWindowExpires < 2 && (
+              <div className="mt-2 text-center">
+                <p className="text-xs text-yellow-400">
+                  ⚠️ ينتهي نافذة 24 ساعة خلال {Math.round(timeUntilWindowExpires * 60)} دقيقة
+                </p>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Transfer Modal */}

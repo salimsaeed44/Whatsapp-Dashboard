@@ -12,10 +12,10 @@ const Messages = () => {
 
   useEffect(() => {
     loadMessages();
-    // Poll for updates every 30 seconds instead of using socket
+    // Poll for updates every 2 minutes (less frequent to reduce server load)
     const interval = setInterval(() => {
       loadMessages();
-    }, 30000);
+    }, 120000); // 2 minutes instead of 30 seconds
     return () => clearInterval(interval);
   }, []);
 
