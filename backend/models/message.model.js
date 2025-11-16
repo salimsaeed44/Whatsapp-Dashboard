@@ -264,6 +264,53 @@ const getMessagesByPhoneNumber = async (phoneNumber, options = {}) => {
 };
 
 /**
+ * Get last incoming message for a conversation or phone number
+ * @param {string} conversationId - Conversation ID (optional)
+ * @param {string} phoneNumber - Phone number (optional, required if conversationId not provided)
+ * @returns {Promise<Object|null>} Last incoming message or null
+ */
+const getLastIncomingMessage = async (conversationId = null, phoneNumber = null) => {
+  try {
+    if (!conversationId && !phoneNumber) {
+      throw new Error('Either conversationId or phoneNumber must be provided');
+    }
+
+    let whereClause = 'direction = $1 AND deleted_at IS NULL';
+    let values = ['incoming'];
+    let paramIndex = 2;
+
+    if (conversationId) {
+      whereClause += ` AND conversation_id = $${paramIndex++}`;
+      values.push(conversationId);
+    } else {
+      whereClause += ` AND phone_number = $${paramIndex++}`;
+      values.push(phoneNumber);
+    }
+
+    const result = await query(
+      `SELECT * FROM messages
+       WHERE ${whereClause}
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    // Parse JSONB fields
+    const message = result.rows[0];
+    message.metadata = typeof message.metadata === 'string' ? JSON.parse(message.metadata) : message.metadata;
+    message.raw_payload = typeof message.raw_payload === 'string' ? JSON.parse(message.raw_payload) : message.raw_payload;
+
+    return message;
+  } catch (error) {
+    throw error;
+  }
+};
+
+/**
  * Update message status
  * @param {string} messageId - Message ID
  * @param {string} status - New status
@@ -570,6 +617,7 @@ module.exports = {
   findMessageById,
   findMessageByWhatsAppId,
   getMessagesByPhoneNumber,
+  getLastIncomingMessage,
   updateMessageStatus,
   getAllMessages,
   deleteMessage,

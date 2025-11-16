@@ -143,6 +143,23 @@ const sendMessage = async (req, res) => {
       conversation = await Conversation.getOrCreateConversation(phone_number);
     }
 
+    // Check 24-hour window: Can only send if within 24 hours of last incoming message
+    const lastIncomingMessage = await Message.getLastIncomingMessage(conversation.id, phone_number);
+    
+    if (lastIncomingMessage) {
+      const lastIncomingTime = new Date(lastIncomingMessage.created_at || lastIncomingMessage.timestamp);
+      const now = new Date();
+      const hoursSinceLastMessage = (now - lastIncomingTime) / (1000 * 60 * 60);
+      
+      if (hoursSinceLastMessage >= 24) {
+        return res.status(400).json({
+          error: '24-hour window expired',
+          message: 'المحادثة خارج نافذة 24 ساعة ولا يمكنك بدء المحادثة إلا أن يعيد المستخدم التواصل مع الرقم أو البدء برسالة قالب.',
+          hoursSinceLastMessage: Math.round(hoursSinceLastMessage * 100) / 100
+        });
+      }
+    }
+
     // Send message via WhatsApp
     const result = await whatsappService.sendTextMessage(phone_number, content, {
       user_id: currentUser?.id,
